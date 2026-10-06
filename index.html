@@ -77,6 +77,55 @@
   #pop .pri code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     font-size:11.5px;background:#f3f4f6;border-radius:4px;padding:1px 4px;word-break:break-all}
   #pop .pri .dim{color:var(--sub);font-size:11.5px;margin-top:12px}
+  /* 全文弹窗: 标题 / 一行小信息 / 正文(可能带图) */
+  #pop .fm{margin:0 0 10px;font-size:11.5px;color:var(--sub)}
+  #pop .fx{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.8}
+  /* 上面 #pop img 是给头像用的(54px 圆形), 会连正文图一起套进去 —— 这里必须把
+     width/height/border-radius/object-fit 全部覆盖回来, 否则图全是 54px 小圆图 */
+  #pop .fx img{width:auto;height:auto;max-width:100%;object-fit:contain;background:none;
+    border-radius:8px;margin:9px 0;display:block;cursor:zoom-in}
+  #pop .fx.miss{color:var(--sub)}
+  /* 表情: 正文和评论里都有 <img class="img-emoj">, 得跟文字同一行排(内联小图),
+     不能像配图那样 display:block 占一整行, 也不能被头像规则套成 54px 圆图 */
+  #pop .fx img.em,#pop .cm img.em{display:inline;width:auto;height:1.4em;
+    vertical-align:-.3em;margin:0 1px;border-radius:0;background:none;cursor:default}
+  /* 评论区: 挂在正文下面。默认不请求, 点「回复 N」或滚到底才加载(懒加载) */
+  #pop .cmb{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  #pop .cmb .more{display:block;width:100%;margin:0;padding:8px 0;border:0;
+    background:#f6f8fa;border-radius:8px;color:var(--blue);font-size:12.5px;
+    font-family:inherit;cursor:pointer}
+  #pop .cmb .more:hover{background:#eef2f7}
+  #pop .cmb .more[disabled]{color:var(--sub);cursor:default}
+  #pop .cmb .nil{padding:15px 0;text-align:center;font-size:12px;color:var(--sub)}
+  #pop .cm{display:flex;gap:9px;padding:9px 0;border-top:1px dashed #eceff3}
+  #pop .cm:first-child{border-top:0}
+  /* 头像规则 #pop img 是 54px, 评论头像要小得多 */
+  #pop .cm .hd{width:24px;height:24px;border-radius:50%;object-fit:cover;
+    background:#eef0f3;flex:none;margin-top:2px}
+  #pop .cm .bd{flex:1;min-width:0}
+  #pop .cm .th{display:flex;align-items:baseline;gap:6px;font-size:11.5px;color:var(--sub)}
+  #pop .cm .un{font-weight:600;color:var(--txt);font-size:12.5px;cursor:pointer}
+  #pop .cm .un:hover{color:var(--blue);text-decoration:underline}
+  #pop .cm .op{color:#6d28d9;background:#f5f3ff;border-radius:9px;padding:0 6px;
+    font-size:10.5px;font-weight:600;flex:none}
+  #pop .cm .ap{margin-left:auto;flex:none}
+  #pop .cm .tx{margin-top:3px;font-size:13px;line-height:1.75;color:#374151;
+    white-space:pre-wrap;word-break:break-word}
+  /* 评论里的图: 上面 #pop img(头像规则)会把没带 class 的图压成 54px 圆图, 这里统一兜住;
+     同时原图动辄上千像素宽, 在 680px 弹窗里会撑满一屏 —— 限到 300px。
+     头像(.hd)和表情(.em)在下面各自覆盖 */
+  #pop .cm img{display:block;width:auto;height:auto;max-width:min(100%,300px);
+    max-height:340px;object-fit:contain;background:none;border-radius:6px;
+    margin:6px 0;cursor:zoom-in}
+  #pop .cm .qt{margin-top:4px;padding:6px 9px;background:#f6f8fa;border-radius:6px;
+    border-left:2px solid #dbe2ea;font-size:12px;color:var(--sub);line-height:1.7}
+  #pop .cm .qt b{color:#475569;font-weight:600;margin-right:4px}
+  /* meta 行里的「回复 N」可点 —— 点了才去加载评论 */
+  #pop .fm .rp{color:var(--blue);cursor:pointer;border-bottom:1px dashed #bfdbfe}
+  #pop .fm .rp:hover{color:#1d4ed8}
+  /* 读全文的弹窗比文档弹窗再宽一点, 图才看得清 */
+  #pop.wide.pic{width:min(680px,calc(100vw - 36px))}
+  #pop.wide.pic .pri{max-height:min(74vh,760px)}
   .wtag{font-size:11px;font-weight:600;color:var(--blue);background:#eff6ff;
     border:1px solid #bfdbfe;border-radius:10px;padding:1px 8px;
     margin-left:6px;vertical-align:2px;white-space:nowrap}
@@ -111,6 +160,11 @@
     overflow:hidden;line-height:1.45}
   .tt a{color:var(--txt);text-decoration:none}
   .tt a:hover{color:var(--blue)}
+  /* "全文"按钮: 标题被截在 42 字左右, 写不下的都进了正文, 只在正文更长时才给 */
+  .fb{margin-left:7px;padding:1px 8px;border:1px solid var(--line);background:#fff;
+    color:var(--blue);border-radius:20px;font-size:11px;font-family:inherit;
+    cursor:pointer;white-space:nowrap}
+  .fb:hover{background:#eff6ff}
   .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;
     background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;margin-right:5px}
   .tag.g{background:#ecfdf5;color:var(--green);border-color:#a7f3d0}
@@ -176,6 +230,10 @@
   .met i{font-style:normal;margin-right:3px}
   .met b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
   .met .sep{margin:0 7px;color:#d1d5db}
+  /* 信息流里的「回复 N」: 做成按钮, 点了开评论弹窗 */
+  .rc{margin:0;padding:0;border:0;background:none;font:inherit;color:var(--blue);
+    cursor:pointer;font-variant-numeric:tabular-nums}
+  .rc:hover{text-decoration:underline}
 
   .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
     padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#1e40af;line-height:1.7}
@@ -207,14 +265,19 @@
   #pop .kv.sg span{flex:none}
   #pop .kv.sg b{flex:1;min-width:0;color:#374151;font-weight:400;
     font-size:12px;line-height:1.55;text-align:right;word-break:break-word}
-  #pop .lm{margin-top:9px;font-size:12px;color:#92400e;background:#fffbeb;
-    border:1px solid #fde68a;border-radius:8px;padding:6px 9px}
-  /* 锁主页(琥珀) 和 锁动态(石板灰) 是两码事, 用不同颜色区分 */
+  /* 灰框: 锁主页 和 被隐藏的板块(动态/荣誉/帖子)都用它 —— 都是"看不到",
+     没必要一个琥珀一个灰去区分。看得到的板块不显示, 只报看不见的。 */
+  #pop .lm{margin-top:9px;font-size:12px;color:#334155;background:#f1f5f9;
+    border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
+  #pop .hid{margin-top:7px;font-size:12px;color:#334155;background:#f1f5f9;
+    border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
+  #pop .hid .hr{display:flex;justify-content:space-between;gap:10px}
+  #pop .hid .hr + .hr{margin-top:3px;padding-top:3px;border-top:1px dashed #dbe2ea}
+  #pop .hid .hr b{font-weight:600;color:#475569}
   #pop .kv{display:flex;justify-content:space-between;align-items:center;
     margin-top:9px;font-size:12px;color:var(--sub)}
   #pop .kv b{color:#6d28d9;font-size:12.5px}
   /* 动态/帖子的权限说明(仅粉丝可见 / 仅自己可见): 琥珀色, 跟上面"锁主页"一个色系 */
-  #pop .kv b.no{color:#b45309;font-weight:400;font-size:12px}
   /* 资料框: 换另一端去查(有人锁了主页, 换端往往能看到) */
   /* 左: 资料来源   右: 换端(灰色小字, 不抢蓝色"打开主页"的视觉) */
   #pop .tail{display:flex;align-items:baseline;justify-content:space-between;
@@ -480,6 +543,15 @@ function norm(it){
   return it;
 }
 function boardOf(p){ return FID_NAMES[String(p.type_value)] || ("板块" + p.type_value); }
+// 信息流里的「回复 N」做成按钮: 点开一个只放评论的弹窗, 进去才请求(列表页一条都不发)。
+// 0 回复不给按钮 —— 点了也是空弹窗。zero 是 0 时显示的样子(两处排版不一样)。
+// withWord: 小屏那行要把「回复」两个字也包进按钮(用户在意的是整块可点, 不只是数字)
+function rcBtn(p, zero, withWord){
+  const n = num(p.comment_count);
+  if (n <= 0) return zero;
+  return '<button class="rc" data-cmt="' + esc(p.id) + '" title="查看回复">'
+       + (withWord ? '<i>回复</i>' : "") + n + '</button>';
+}
 // 接口给的 tburl 和 url 其实是同一个地址(只有水印, 没有缩放) ——
 // 按 46px 显示却下载上百 KB 原图太浪费, 自己插一段 OSS resize。实测 109KB -> 6KB。
 // 灯箱仍然用原图 url, 保证放大后清晰。
@@ -858,13 +930,15 @@ function renderRows(){
         + '<span class="grp" data-grp="'+p.user_id+'"></span></div>'
       + '<div class="met"><span>'+esc(fmtAgo(num(p.publish_time)))+'</span>'
         + '<span class="sep">·</span><span><i>阅读</i><b>'+num(p.click)+'</b></span>'
-        + '<span class="sep">·</span><span><i>回复</i><b>'+num(p.comment_count)+'</b></span>'
+        + '<span class="sep">·</span><span>'+rcBtn(p,'<i>回复</i><b>0</b>',true)+'</span>'
         + '</div></td>'
       + '<td><div class="tt"><a href="'+esc(postUrl(p))+'" target="_blank" rel="noreferrer">'
-        + esc((p.title||"").trim())+'</a></div>' + thumbs + '</td>'
+        + esc((p.title||"").trim())+'</a></div>'
+        + (hasFull(p) ? '<button class="fb" data-full="'+esc(p.id)+'">全文</button>' : "")
+        + thumbs + '</td>'
       + '<td><span class="tag'+(p.type_value===169?"":" g")+'">'+esc(boardOf(p))+'</span></td>'
       + '<td class="num">'+num(p.click)+'</td>'
-      + '<td class="num">'+num(p.comment_count)+'</td>'
+      + '<td class="num">'+rcBtn(p,'0')+'</td>'
       + '<td class="num" title="'+fmtClock(num(p.publish_time))+'">'+fmtAgo(num(p.publish_time))+'</td>'
       + '</tr>';
   }).join("") || '<tr><td colspan="6" style="color:#6b7280">这个时间窗口内还没有数据，先点采集</td></tr>';
@@ -1002,11 +1076,21 @@ const CHANGELOG_HTML =
 + '<p class="dim">当前 v1.0.3 · 小改动进最后一位，较大的功能或界面调整进中间位</p>'
 
 + '<h5>v1.0.3 · 2026-10-07</h5>'
-+ '<ul><li>资料卡里能看到主页各板块的可见性：动态 / 帖子分别显示条数，'
-+ '被设了权限的显示「仅粉丝可见」「仅自己可见」（琥珀色）。</li>'
-+ '<li>这两个板块能单独设权限，所以不再靠 <code>role_des</code> 猜「锁动态」——'
++ '<ul><li>主页板块只在<b>看不见</b>时才出现：动态 / 荣誉 / 帖子共用一个灰框，'
++ '写明「仅粉丝可见」「仅自己可见」「已关闭」；看得到的不再占地方。</li>'
++ '<li>锁主页和锁荣誉分开判：主页看 <code>userHomev3</code> 的 <code>privacy</code>，'
++ '荣誉看 <code>getUserInfo</code> 的 <code>is_privacy</code> 和 <code>msg</code>。'
++ '锁主页时荣誉也是空的，那是连带的，不算荣誉单独设了权限。</li>'
++ '<li>锁主页也改成灰框（原来是琥珀色），和板块框统一。</li>'
++ '<li>不显示条数 —— 没登录时接口固定只给 3 条（<code>step</code> 给多大都一样），'
++ '写了是假的。</li>'
++ '<li>这三个板块能单独设权限，所以不再靠 <code>role_des</code> 猜「锁动态」——'
 + '有人主页没锁、动态却只对粉丝可见，以前看不出来。</li>'
-+ '<li>锁主页的人显示「主页已锁」，不再显示成「无」（会让人以为他没发过东西）。</li></ul>'
++ '<li>锁主页时只显示锁主页那一框，不再把三个板块重复列成「主页已锁」。</li>'
++ '<li>标题写不下的都在正文里 —— 这样的帖子标题后面会出现「全文」按钮，'
++ '点开读完整正文；配图点一下用灯箱看大图。</li>'
++ '<li>信息流里的<b>「回复 N」整块都是按钮</b>（「回复」两个字也算）：点开一个只放回复的弹窗，'
++ '进去才加载（列表页不发请求），滚到底自动翻页；回复里的用户名能点开资料卡，图片限宽 300px。</li></ul>'
 
 + '<h5>v1.0.2 · 2026-10-06</h5>'
 + '<ul><li>资料卡底部改成一行：左下角「资料来源」，右下角切换另一端查资料（灰色小字）。</li>'
@@ -1064,7 +1148,11 @@ async function loadBoards(uid, host){
   const one = async (path) => {
     try{
       const d = await getJSON(host + path);
-      return { n: ((d && d.list) || []).length,
+      const lst = (d && d.list) || [];
+      return { n: lst.length,
+               // 没登录, 接口固定只给 3 条(step 给 5/20/100 都一样), 所以条数不是真实总数,
+               // 只能拿来判"有没有内容"。真要看活跃度得靠最新那条的时间。
+               last: (lst[0] && (lst[0].create_time_str || lst[0].publish_time_str)) || "",
                locked: String(d && d.is_privacy) === "1",
                msg: String((d && d.msg) || "") };
     }catch(e){ return null; }        // 单个挂了不影响另一行
@@ -1081,34 +1169,270 @@ async function loadBoards(uid, host){
 // 板块状态 -> 显示文案。权限说明去掉接口那句"用户设置了查看权限，"和开头的板块名,
 // 剩下"仅粉丝可见"/"仅自己可见"才是人要看的部分。
 // lockHome 时接口只回空 list、不给 msg, 显示"无"会让人以为他没发过东西, 说"主页已锁"才对。
+// msg 的几种说法(实测): "用户设置了查看权限，动态仅粉丝可见" / "…帖子仅自己可见"
+//                      / "用户已关闭该功能"(板块被关掉, 不是权限问题) / null(锁主页)
 function boardText(v, lockHome){
   if (!v) return { t: "—", no: false };
   if (v.locked || v.msg){
-    const t = v.msg.replace(/^用户设置了查看权限，/, "").replace(/^(动态|帖子)/, "").trim();
-    return { t: t || (lockHome ? "主页已锁" : "不可见"), no: true };
+    const raw = v.msg.replace(/^用户设置了查看权限，/, "").replace(/^(动态|帖子|荣誉)/, "").trim();
+    const t = /已关闭/.test(raw) ? "已关闭"
+            : raw || (lockHome ? "主页已锁" : "不可见");
+    return { t, no: true };
   }
-  if (v.n > 0) return { t: (v.n >= 20 ? "20+" : v.n) + " 条", no: false };
+  // 有内容就写"可见"+最新一条的时间: 条数是假的(未登录永远 3 条), 写了反而误导
+  if (v.n > 0) return { t: v.last ? "可见 · " + v.last : "可见", no: false };
   return { t: lockHome ? "主页已锁" : "无", no: lockHome };
 }
 
+// 标题被截在 42 字左右, 写不下的都进了正文 des。
+// 只有正文明显比标题长时才给"全文"按钮 —— 一样长的话点了也是同一句话, 白占地方。
+function hasFull(p){
+  const t = String(p.title || "").trim(), s = String(p.des || "").trim();
+  return s.length > t.length + 2;
+}
+
+// ---------------------------------------------------------------- 读全文
+const fullCache = new Map();     // host|tid -> threadView 的 data
+
+async function loadFull(p){
+  const host = $("host").value;
+  const key = host + "|" + p.id;
+  if (fullCache.has(key)) return fullCache.get(key);
+  let d = null;
+  try{
+    const r = await getJSON(host + "/mag/circle/v1/forum/threadView?tid=" + p.id);
+    d = (r && r.data) || null;
+  }catch(e){}                    // 取不到就用列表里那份 des, 不让弹窗开天窗
+  fullCache.set(key, d);
+  return d;
+}
+
+// 正文是对方给的 HTML(<br> 换行 + <img> 贴图), 不能直接塞进 innerHTML —— 里面可能有脚本。
+// 只挑出文本节点、<br>、<img src> 自己重新拼, 其余标签只要它里面的内容。
+function richNodes(html){
+  // 正文后面还挂着一整块"更多帖子推荐"的页面 HTML(<style> + <div class="suggestlog">…),
+  // 不切掉的话全文末尾会跟一串推荐标题。切在 <style> 处最稳 —— 它就是正文结束的标志。
+  const src = String(html || "").split(/<style[\s>]/i)[0];
+  const doc = new DOMParser().parseFromString(src, "text/html");
+  const out = [];
+  (function walk(node){
+    for (const n of node.childNodes){
+      if (n.nodeType === 3){ if (n.nodeValue) out.push(["t", n.nodeValue]); continue; }
+      if (n.nodeType !== 1) continue;
+      const tag = n.tagName.toLowerCase();
+      if (tag === "script" || tag === "style") continue;
+      // 双保险: 万一哪天推荐块不带 <style>, 靠 class 也能认出来
+      if (/suggestlog/i.test(n.getAttribute("class") || "")) continue;
+      if (tag === "br"){ out.push(["br"]); continue; }
+      if (tag === "img"){
+        // 图是懒加载的: src 是空串, 真地址在 data-original
+        const s = n.getAttribute("data-original") || n.getAttribute("src") || "";
+        if (!/^https?:\/\//i.test(s)) continue;
+        // 表情是 <img class="img-emoj" src=".../emotion/face_xxx.png">, 正文和评论里都有。
+        // 它得跟文字排在同一行(内联小图), 不能跟配图一样 display:block 占一整行
+        const emo = /img-emoj/i.test(n.getAttribute("class") || "") || /\/emotion\//i.test(s);
+        out.push([emo ? "em" : "img", s]);
+        continue;
+      }
+      walk(n);
+    }
+  })(doc.body);
+  return out;
+}
+const richHtml = (nodes) => nodes.map(n =>
+    n[0] === "t"  ? esc(n[1])
+  : n[0] === "br" ? "<br>"
+  : n[0] === "em" ? '<img class="em" loading="lazy" src="' + esc(n[1]) + '" alt="">'
+  : '<img loading="lazy" src="' + esc(n[1]) + '">').join("");
+
+async function openFull(id){
+  const p = ALL.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const tid = String(p.id);
+  const nCmt = num(p.comment_count);
+  // 这里只放正文。回复是另一个弹窗(信息流里的「回复 N」点进来), 不在正文下面堆
+  const meta = [esc(p.user_name || "匿名"), esc(fmtAgo(num(p.publish_time))),
+                "阅读 " + num(p.click)].filter(Boolean).join(" · ");
+  const cmtTag = nCmt > 0
+    ? '<b class="rp" data-cmt="' + esc(tid) + '">回复 ' + nCmt + '</b>' : "回复 0";
+
+  // 先拿列表里那份 des 立刻显示, 别让用户对着空白等请求
+  showDoc('<h4>' + esc(String(p.title || "").trim()) + '</h4>'
+    + '<div class="fm">' + meta + (meta ? " · " : "") + cmtTag + '</div>'
+    + '<div class="fx" id="fullBody">' + esc(String(p.des || "").trim()) + '</div>'
+    + (nCmt > 0 ? '<div class="cmb"><button class="more" data-cmt="' + esc(tid) + '">'
+                  + '查看 ' + nCmt + ' 条回复</button></div>' : ""));
+  pop.classList.add("pic");         // 宽版, 图看得清; openPop 里会还原
+
+  const d = await loadFull(p);
+  const el = $("fullBody");
+  if (!el) return;                       // 弹窗已经被关掉了
+  if (d && d.content){
+    el.innerHTML = richHtml(richNodes(d.content));
+  }else if (d && (d.pics || []).length){
+    // 没有 HTML 正文但有配图: 文本用列表那份, 图补在下面
+    el.innerHTML = esc(String(p.des || "").trim())
+      + d.pics.map(u => '<img loading="lazy" src="' + esc(u) + '">').join("");
+  }else if (d){
+    el.className = "fx miss";
+    el.textContent = "这篇没有正文（可能只有图或视频）。";
+  }else{
+    el.className = "fx miss";
+    el.textContent = "全文没取到，上面这段是列表里的摘要（点列表里的标题可以打开原帖）。";
+  }
+}
+
+// ---------------------------------------------------------------- 回复(评论)
+// 接口: /mag/circle/v1/Forum/commentList?tid=&p=&step=
+//   (试出来的 —— 同目录下 replyList/threadReplyList 全都 "method not exists")
+// 注意: step 参数服务端会忽略, 实测写死 18 条一页, 翻页只能看返回的 total_page。
+// 开弹窗时不请求, 等用户点「回复 N」或「查看 N 条回复」才加载第一页(懒加载),
+// 之后滚到底自动接着翻。
+let cmtPage = 0, cmtPages = 1, cmtBusy = false;
+const cmtCache = new Map();       // host|tid|page -> {list,total,tp}
+function cmtReset(tid){
+  cmtPage = 0; cmtPages = 1; cmtBusy = false;
+}
+
+async function loadCmt(tid, page){
+  const host = $("host").value;
+  const key = host + "|" + tid + "|" + page;
+  if (cmtCache.has(key)) return cmtCache.get(key);
+  let d = null;
+  try{
+    const r = await getJSON(host + "/mag/circle/v1/Forum/commentList?tid="
+              + encodeURIComponent(tid) + "&p=" + page + "&step=20");
+    d = { list: r.list || [], total: Number(r.count) || 0,
+          tp: Number(r.total_page) || 1 };
+  }catch(e){}                     // 取不到就在评论区提示, 不影响正文
+  cmtCache.set(key, d);
+  return d;
+}
+
+// 楼中楼: 回复的是另一条评论时, to_comment 带那条的内容。
+// 类型两种都见过: 没有引用时是 [] (或 null), 有引用时是**对象**(不是数组)。
+function cmtQuote(c){
+  const q = c && c.to_comment;
+  const one = Array.isArray(q) ? (q[0] || null)
+            : (q && typeof q === "object" && Object.keys(q).length ? q : null);
+  if (!one) return "";
+  const ct = richHtml(richNodes(String(one.content || "")));
+  return '<div class="qt"><b>' + esc(String(one.user_name || "匿名").trim())
+       + '：</b>' + (ct || "…") + '</div>';
+}
+
+function cmtHtml(c){
+  const uid  = String(c.user_id || "");
+  const name = String(c.user_name || "匿名").trim();
+  const head = String(c.user_head || "");
+  const hd   = /^https?:\/\//i.test(head)
+    ? '<img class="hd" loading="lazy" src="' + esc(head) + '" alt="">'
+    : '<span class="hd"></span>';            // 没头像就给个灰圆圈占位
+  const tag  = c.is_publisher ? '<span class="op">楼主</span>' : "";
+  const fl   = c.floor ? '<span>#' + esc(String(c.floor)) + '</span>' : "";
+  const tm   = String(c.time || "");         // 已经是 "2026-10-7 01:28" 这种字符串
+  const ap   = num(c.applaud_count) > 0 ? '<span class="ap">赞 ' + num(c.applaud_count) + '</span>' : "";
+  // 正文是对方给的 HTML(表情是 <img class="img-emoj">), 同样走 richNodes 消毒
+  const tx   = richHtml(richNodes(String(c.content || "")));
+  const pics = (c.pics || [])
+    .filter(u => /^https?:\/\//i.test(String(u || "")))
+    .map(u => '<img class="cp" loading="lazy" src="' + esc(String(u)) + '">').join("");
+  return '<div class="cm">' + hd + '<div class="bd"><div class="th">'
+    + (uid ? '<span class="un" data-uid="' + esc(uid) + '">' + esc(name) + '</span>'
+           : '<span>' + esc(name) + '</span>')
+    + tag + fl + (tm ? '<span>' + esc(tm) + '</span>' : "") + ap
+    + '</div>' + cmtQuote(c)
+    + '<div class="tx">' + (tx || '<span style="color:#9ca3af">（没内容）</span>') + '</div>'
+    + pics + '</div></div>';
+}
+
+async function showCmt(page){
+  const box = $("cmtBox");
+  if (!box) return;                          // 弹窗没开
+  const tid = box.dataset.tid || "";
+  if (!tid || cmtBusy) return;               // 正在加载就别重复点
+  if (page > 1 && cmtPage && page > cmtPages) return;
+  cmtBusy = true;
+  const btn = box.querySelector(".more");
+  if (btn){ btn.disabled = true; btn.textContent = "加载中…"; }
+  const d = await loadCmt(tid, page);
+  cmtBusy = false;
+  const cur = $("cmtBox");
+  // 请求期间弹窗可能已经被关掉、或者换成另一篇了 —— 那就别往回塞
+  if (!cur || cur.dataset.tid !== tid) return;
+  if (!d || !d.list){
+    cur.innerHTML = '<div class="nil">回复没取到（可能要登录才能看）。</div>';
+    return;
+  }
+  cmtPage = page; cmtPages = d.tp;
+  const html = d.list.map(cmtHtml).join("");
+  if (page === 1){
+    cur.innerHTML = html || '<div class="nil">还没有回复</div>';
+  }else{
+    const more = cur.querySelector(".more");
+    if (more) more.insertAdjacentHTML("beforebegin", html);
+    else cur.insertAdjacentHTML("beforeend", html);
+    const old = cur.querySelector(".more");
+    if (old) old.remove();
+  }
+  if (page < d.tp && d.list.length)
+    cur.insertAdjacentHTML("beforeend",
+      '<button class="more" data-page="' + (page + 1) + '">加载更多回复</button>');
+}
+
+// 信息流里的「回复 N」/ 全文弹窗底部的「查看 N 条回复」-> 开一个只放回复的弹窗。
+// 进去就加载第一页(用户是冲着回复点进来的), 之后滚到底自动接着翻。
+async function openCmt(id){
+  const p = ALL.find(x => String(x.id) === String(id));
+  if (!p) return;
+  const tid = String(p.id);
+  cmtReset(tid);
+  const nCmt = num(p.comment_count);
+  const meta = [esc(p.user_name || "匿名"), esc(fmtAgo(num(p.publish_time))),
+                "阅读 " + num(p.click)].filter(Boolean).join(" · ");
+  showDoc('<h4>' + esc(String(p.title || "").trim()) + '</h4>'
+    + '<div class="fm">' + meta + (meta ? " · " : "") + "回复 " + nCmt + '</div>'
+    + '<div class="cmb" id="cmtBox" data-tid="' + esc(tid) + '">'
+    +   '<button class="more" disabled>加载中…</button></div>');
+  pop.classList.add("pic");
+  bindCmtScroll();
+  await showCmt(1);
+}
+// 滚到底自动翻下一页(只在已经加载过第一页之后才生效)
+function bindCmtScroll(){
+  const pri = pop.querySelector(".pri");
+  if (!pri) return;
+  pri.onscroll = () => {
+    if (!cmtPage || cmtBusy || cmtPage >= cmtPages) return;
+    if (pri.scrollTop + pri.clientHeight < pri.scrollHeight - 80) return;
+    showCmt(cmtPage + 1);
+  };
+}
+
 // getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
-// 注意: 主页被锁(privacy=1)时这里全是空, 拿不到注册天数 —— 属正常。
+// 顺便拿它判"荣誉"板块 —— 荣誉单独设权限时 is_privacy=1 且 msg 写明"仅自己可见/仅粉丝可见",
+// data 整个空掉。注意: 主页被锁(privacy=1)时这里也是空的, 但 is_privacy=-1、msg 为空,
+// 那是主页锁的连带结果, 不是荣誉自己设了权限 —— 两回事, 别混为一谈。
 async function loadInfo(uid, host){
-  if (!uid) return {};
+  if (!uid) return { kv: {}, honor: null };
   const h = host || $("host").value;
   // 缓存要带 host: 同一个人在两端返回的注册时间可能不同
   const key = h + "|" + uid;
   if (infoCache.has(key)) return infoCache.get(key);
-  const out = {};
+  const kv = {};
+  let honor = null;
   try{
     const d = await getJSON(h + "/mag/user/v3/user/getUserInfo?user_id=" + uid);
     for (const blk of (d.data || [])){
       if (blk.type !== "info") continue;
       for (const it of (blk.data || [])){
-        if (it && it.name != null) out[it.name] = it.value;
+        if (it && it.name != null) kv[it.name] = it.value;
       }
     }
+    honor = { n: (kv["注册时间"] ? 1 : 0), last: "",
+              locked: String(d.is_privacy) === "1", msg: String(d.msg || "") };
   }catch(e){}
+  const out = { kv, honor };
   infoCache.set(key, out);
   return out;
 }
@@ -1122,6 +1446,8 @@ function homeUrl(uid){
 async function openPop(uid, fallbackName, forceHost){
   if (!uid) return;
   pop.classList.remove("wide");          // 隐私弹窗加的宽版样式要还原, 否则资料卡会跟着变宽
+  pop.classList.remove("pic");           // 读全文那个更宽的也要还原
+  cmtReset();                            // 资料卡里没有评论区, 别留着上一篇的翻页状态
   // forceHost = 用户点了"换另一端查", 此时不能用当前端的缓存
   const host = forceHost || $("host").value;
   const opts = [...$("host").options];
@@ -1178,8 +1504,8 @@ async function openPop(uid, fallbackName, forceHost){
     + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
     + (sign ? '<div class="kv sg"><span>个性签名</span><b>'+esc(sign.slice(0,60))+'</b></div>' : "")
     + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
-    + '<div class="kv"><span>动态</span><b id="popAct">…</b></div>'
-    + '<div class="kv"><span>帖子</span><b id="popThr">…</b></div>'
+    // 看得到的板块不占地方, 只有被隐藏/关闭的才进下面这个灰框(异步填)
+    + '<div class="hid" id="popHid" style="display:none"></div>'
     + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>'
     + tail();
   msk.style.display = "block";
@@ -1192,18 +1518,28 @@ async function openPop(uid, fallbackName, forceHost){
   loadInfo(uid, host).then(inf => {
     const el = $("popReg");
     if (!el) return;
-    el.textContent = inf["注册时间"] ? inf["注册时间"] : (lockHome ? "主页已锁" : "-");
+    el.textContent = inf.kv["注册时间"] ? inf.kv["注册时间"] : (lockHome ? "主页已锁" : "-");
   });
 
-  // 动态/帖子两条要各打一次接口, 懒加载; 同一次开卡里两个请求并发
-  loadBoards(uid, host).then(b => {
-    for (const [id, v] of [["popAct", b.act], ["popThr", b.thr]]){
-      const el = $(id);
-      if (!el) return;
-      const r = boardText(v, lockHome);
-      el.textContent = r.t;
-      if (r.no) el.className = "no";
+  // 板块只在"看不见"时才露面, 动态 / 荣誉 / 帖子共用一个灰框:
+  //   动态·帖子 -> loadBoards(各打一次接口), 荣誉 -> getUserInfo(拿不到资料就是被锁了)
+  Promise.all([loadInfo(uid, host), loadBoards(uid, host)]).then(([inf, b]) => {
+    const el = $("popHid");
+    if (!el) return;
+    const rows = [];
+    // 锁主页时上面已经有一个灰框说明了, 这里再逐条列一遍全是"主页已锁", 是废话
+    if (!lockHome){
+      // 顺序跟 APP 里主页板块的 order_id 一致: 荣誉(1) 动态(2) 帖子(3)
+      for (const [name, v] of [["荣誉", inf.honor], ["动态", b.act], ["帖子", b.thr]]){
+        if (!v) continue;
+        const r = boardText(v, lockHome);
+        if (r.no) rows.push([name, r.t]);   // r.no = 看不见(设了权限 / 关了 / 锁主页)
+      }
     }
+    if (!rows.length) return;
+    el.style.display = "";
+    el.innerHTML = rows.map(([k, v]) =>
+      '<div class="hr"><span>' + esc(k) + '</span><b>' + esc(v) + '</b></div>').join("");
   });
 }
 
@@ -1214,9 +1550,17 @@ document.addEventListener("click", (e) => {
     openPop(String(box.dataset.uid || ""), box.textContent.trim());
     return;
   }
-  if (e.target.closest("#pop")) return;      // 卡内点链接别关掉
+  // 弹窗里的按钮(评论中的用户名、"加载更多"…)经常在自己的处理函数里被 innerHTML 换掉,
+  // 冒泡到这里时 e.target 已经脱离文档, closest("#pop") 是 null —— 于是被当成"点空白",
+  // 刚打开的资料卡当场被关掉。必须用 composedPath 看**原始**路径才准。
+  const path = e.composedPath ? e.composedPath() : [];
+  if (path.indexOf(pop) >= 0 || e.target.closest("#pop")) return;
   // 页脚"隐私政策": 它自己会开弹窗, 冒泡到这里再被下面的"点空白就关"关掉, 等于点了没反应
   if (e.target.closest(".foot")) return;
+  // 同理, "全文"按钮自己开弹窗, 别刚开就被关掉
+  if (e.target.closest(".fb")) return;
+  // 信息流里的「回复 N」也是自己开弹窗(第二次踩这个坑了: 页脚按钮那次是第一次)
+  if (e.target.closest(".rc")) return;
   if (pop.style.display === "block") closePop();
 });
 msk.onclick = closePop;
@@ -1228,6 +1572,10 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop()
 $("btn").onclick = () => collect(true);
 // 缩略图 -> 灯箱看大图。一个帖子有多张图时收集整组, 可以左右翻
 $("rows").onclick = (e) => {
+  const fb = e.target.closest(".fb");
+  if (fb){ openFull(fb.dataset.full); return; }   // 标题写不下的正文
+  const rc = e.target.closest(".rc");             // 信息流里的「回复 N」
+  if (rc){ openCmt(rc.dataset.cmt); return; }
   const t = e.target.closest(".thumb");
   if (!t) return;
   const big = t.getAttribute("data-big") || t.src;
@@ -1261,6 +1609,32 @@ $("lbNext").onclick = () => lbStep(1);
 const lbOff = () => $("lb").classList.remove("on");
 // 点箭头/计数不算"点背景", 只有点空处或叉号才关
 $("lb").onclick = (e) => { if (e.target === $("lb") || e.target.closest("#lbClose")) lbOff(); };
+pop.addEventListener("click", (e) => {
+  // 评论里的用户名 -> 开这个人的资料卡。
+  // 资料卡要等接口, 先把评论区换成"正在读取资料…", 否则这几秒弹窗看着像点了没反应
+  const un = e.target.closest(".cm .un");
+  if (un){
+    const uid = String(un.dataset.uid || "");
+    if (uid){
+      pop.innerHTML = XBTN + '<div class="pri"><div class="nil">正在读取资料…</div></div>';
+      $("popX").onclick = closePop;
+      openPop(uid, un.textContent.trim());
+    }
+    return;
+  }
+  // meta 行里的「回复 N」/ 底部「查看 N 条回复」: 带 data-cmt 的都是换到评论弹窗
+  const toCmt = e.target.closest("[data-cmt]");
+  if (toCmt){ openCmt(String(toCmt.dataset.cmt || "")); return; }
+  // 评论弹窗里的「加载更多回复」: 按钮上带着要加载的页码
+  const more = e.target.closest(".cmb .more");
+  if (more){ showCmt(Number(more.dataset.page) || 1); return; }
+  // 配图: 点开用灯箱看大图, 一组图可以左右翻。表情(.em)不算, 它只有 1.4em 高
+  const img = e.target.closest(".fx img:not(.em), .cm img.cp");
+  if (!img) return;
+  const list = [...pop.querySelectorAll(".fx img:not(.em), .cm img.cp")]
+    .map(x => x.src).filter(Boolean);
+  openLb(list, Math.max(0, list.indexOf(img.src)));
+});
 $("lbClose").onclick = lbOff;
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") lbOff();
@@ -1271,7 +1645,8 @@ document.addEventListener("keydown", (e) => {
 // 换端 = 换 cat_id, 旧端的数据含义不同, 清掉头像缓存并立刻重采
 $("host").onchange = () => {
   saveHost();               // 记住选择, 下次打开还是这一端
-  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); page = 1;
+  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); cmtCache.clear();
+  fullCache.clear(); page = 1;
   // collect 忙的时候会直接 return, 不说一声的话看着像"切了端没反应"。
   // 其实下一轮 15 秒快刷会用新的 host, 数据照样会来
   if (busy) $("state").textContent = "正在采上一轮，切端将在下一轮生效";
@@ -1345,7 +1720,7 @@ $("btnWipe").onclick = async () => {
   if (!confirm("清空本地库？库内 " + ALL.length + " 条数据会被删除，建议先导出备份。")) return;
   if (dbOk) await dbClear();
   ALL = []; VIEW = []; page = 1;
-  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear();
+  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); cmtCache.clear();
   render();
   $("state").textContent = "已清空";
 };
