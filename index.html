@@ -1,220 +1,1181 @@
-<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>小宇的碎碎念 - 记录学习与成长</title><meta name="author" content="雨落倾城"><meta name="copyright" content="雨落倾城"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="记录学习与成长">
-<meta property="og:type" content="website">
-<meta property="og:title" content="小宇的碎碎念">
-<meta property="og:url" content="https://blog.986158.xyz/">
-<meta property="og:site_name" content="小宇的碎碎念">
-<meta property="og:description" content="记录学习与成长">
-<meta property="og:locale" content="zh_CN">
-<meta property="article:author" content="雨落倾城">
-<meta property="article:tag" content="技术博客,hexo,butterfly">
-<meta name="twitter:card" content="summary"><script type="application/ld+json">{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "name": "小宇的碎碎念",
-  "alternateName": [
-    "记录学习与成长",
-    "blog.986158.xyz"
-  ],
-  "url": "https://blog.986158.xyz/"
-}</script><link rel="shortcut icon" href="/"><link rel="canonical" href="https://blog.986158.xyz/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.4"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.1.0/css/all.min.css"><script>
-    (() => {
-      
-    const saveToLocal = {
-      set: (key, value, ttl) => {
-        if (!ttl) return
-        const expiry = Date.now() + ttl * 86400000
-        localStorage.setItem(key, JSON.stringify({ value, expiry }))
-      },
-      get: key => {
-        const itemStr = localStorage.getItem(key)
-        if (!itemStr) return undefined
-        const { value, expiry } = JSON.parse(itemStr)
-        if (Date.now() > expiry) {
-          localStorage.removeItem(key)
-          return undefined
-        }
-        return value
-      }
-    }
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>卡农社区实时面板</title>
+<meta name="description" content="浏览器直连采集的卡农社区实时面板，数据存在本地，无需服务器">
+<style>
+  :root{
+    --bg:#f5f6f8; --card:#ffffff; --line:#e6e8eb; --txt:#111827; --sub:#6b7280;
+    --blue:#2563eb; --green:#059669;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{background:var(--bg);color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.6;padding:20px;overflow-x:hidden}
+  .wrap{max-width:1280px;margin:0 auto;width:100%}
 
-    window.btf = {
-      saveToLocal,
-      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
-        const script = document.createElement('script')
-        script.src = url
-        script.async = true
-        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
-        script.onload = script.onreadystatechange = () => {
-          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
-        }
-        script.onerror = reject
-        document.head.appendChild(script)
-      }),
-      getCSS: (url, id) => new Promise((resolve, reject) => {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = url
-        if (id) link.id = id
-        link.onload = link.onreadystatechange = () => {
-          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
-        }
-        link.onerror = reject
-        document.head.appendChild(link)
-      }),
-      addGlobalFn: (key, fn, name = false, parent = window) => {
-        if (!false && key.startsWith('pjax')) return
-        const globalFn = parent.globalFn || {}
-        globalFn[key] = globalFn[key] || {}
-        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
-        parent.globalFn = globalFn
-      }
-    }
-  
-      
-      const activateDarkMode = () => {
-        document.documentElement.setAttribute('data-theme', 'dark')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
-        }
-      }
-      const activateLightMode = () => {
-        document.documentElement.setAttribute('data-theme', 'light')
-        if (document.querySelector('meta[name="theme-color"]') !== null) {
-          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
-        }
-      }
+  .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 18px;box-shadow:var(--shadow);margin-bottom:14px}
+  .brand{font-size:17px;font-weight:700;letter-spacing:.2px}
+  .brand span{color:var(--blue)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);
+    margin-right:6px;display:inline-block;vertical-align:middle}
+  .dot.run{animation:pulse 1.6s ease-in-out infinite}
+  .dot.down{background:#e24b4a;animation:none}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .meta{color:var(--sub);font-size:13px}
+  .meta b{color:var(--txt);font-weight:600}
+  .spacer{flex:1}
+  button{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:7px 16px;
+    font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  button:hover{background:#1d4ed8}
+  button:disabled{background:#9ca3af;cursor:not-allowed}
+  button.ghost{background:#fff;color:var(--txt);border:1px solid var(--line)}
+  button.ghost:hover{background:#f3f4f6}
+  button.sm{padding:5px 11px;font-size:12px}
+  select{border:1px solid var(--line);border-radius:8px;padding:6px 10px;
+    font-size:13px;font-family:inherit;background:#fff;color:var(--txt)}
 
-      btf.activateDarkMode = activateDarkMode
-      btf.activateLightMode = activateLightMode
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;box-shadow:var(--shadow)}
+  .kpi .lb{color:var(--sub);font-size:12px;margin-bottom:4px}
+  .kpi .vl{font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+  .kpi .ex{color:var(--sub);font-size:11px;margin-top:2px}
 
-      const theme = saveToLocal.get('theme')
-    
-          const hour = new Date().getHours()
-          const isNight = hour <= 6 || hour >= 18
-          if (theme === undefined) isNight ? activateDarkMode() : activateLightMode()
-          else theme === 'light' ? activateLightMode() : activateDarkMode()
-        
-      
-      const asideStatus = saveToLocal.get('aside-status')
-      if (asideStatus !== undefined) {
-        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
-      }
-    
-      
-    const detectApple = () => {
-      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
-        document.documentElement.classList.add('apple')
-      }
-    }
-    detectApple()
-  
-    })()
-  </script><script>const GLOBAL_CONFIG = {
-  root: '/',
-  algolia: undefined,
-  localSearch: undefined,
-  translate: undefined,
-  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":true},
-  copy: {
-    success: '复制成功',
-    error: '复制失败',
-    noSupport: '浏览器不支持'
-  },
-  relativeDate: {
-    homepage: false,
-    post: false
-  },
-  runtime: '',
-  dateSuffix: {
-    just: '刚刚',
-    min: '分钟前',
-    hour: '小时前',
-    day: '天前',
-    month: '个月前'
-  },
-  copyright: undefined,
-  lightbox: 'null',
-  Snackbar: undefined,
-  infinitegrid: {
-    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
-    buttonText: '加载更多'
-  },
-  isPhotoFigcaption: false,
-  islazyloadPlugin: false,
-  isAnchor: false,
-  percent: {
-    toc: true,
-    rightside: false,
-  },
-  autoDarkmode: false
-}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
-  title: '小宇的碎碎念',
-  isHighlightShrink: false,
-  isToc: false,
-  pageType: 'home'
-}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/null" onerror="this.onerror=null;this.src='/null'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">1</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">0</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page fixed" id="page-header"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">小宇的碎碎念</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-user"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">小宇的碎碎念</h1><div id="site-subtitle"><span id="subtitle"></span></div><div id="site_social_icons"><a class="social-icon" href="https://github.com/ylqcxw" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:3109911424@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/05/27/hello-world/" title="Hello World">Hello World</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-05-27T06:37:24.648Z" title="发表于 2026-05-27 14:37:24">2026-05-27</time></span></div><div class="content">Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub. Quick StartCreate a new post1$ hexo new &quot;My New Post&quot;  More info: Writing Run server1$ hexo server  More info: Server Generate static files1$ hexo generate  More info: Generating Deploy to remote sites1$ hexo deploy  More info: Deployment </div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/null" onerror="this.onerror=null;this.src='/null'" alt="avatar"/></div><div class="author-info-name">雨落倾城</div><div class="author-info-description">雨落倾城 | 记录学习与成长</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">1</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">0</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">0</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/ylqcxw"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/ylqcxw" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:3109911424@qq.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到小宇的碎碎念，记录学习与成长，不定期更新随笔与技术内容</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/05/27/hello-world/" title="Hello World">Hello World</a><time datetime="2026-05-27T06:37:24.648Z" title="发表于 2026-05-27 14:37:24">2026-05-27</time></div></div></div></div><div class="card-widget card-archives">
-    <div class="item-headline">
-      <i class="fas fa-archive"></i>
-      <span>归档</span>
-      
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  @media(max-width:900px){.row{grid-template-columns:1fr}}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
+  .panel h3{font-size:14px;font-weight:700;margin-bottom:2px}
+  .panel .hint{color:var(--sub);font-size:12px;margin-bottom:12px}
+  .wtag{font-size:11px;font-weight:600;color:var(--blue);background:#eff6ff;
+    border:1px solid #bfdbfe;border-radius:10px;padding:1px 8px;
+    margin-left:6px;vertical-align:2px;white-space:nowrap}
+
+  .bars{display:flex;align-items:flex-end;gap:2px;height:150px}
+  .bars .b{flex:1;background:linear-gradient(180deg,#60a5fa,#2563eb);border-radius:3px 3px 0 0;
+    min-height:2px;position:relative;transition:height .4s ease;cursor:pointer}
+  .bars .b:hover{background:linear-gradient(180deg,#818cf8,#4f46e5)}
+  /* 选中态必须写在 :hover 之后: 两者特异性相同(都是 3 个类), 后写的赢,
+     否则鼠标停在选中的柱子上会闪回 hover 色 */
+  .bars .b.on{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
+  .axis{display:flex;justify-content:space-between;color:var(--sub);font-size:11px;margin-top:6px}
+  /* 点柱子后在这里显示它代表的时段, 空着时占位避免布局跳 */
+  .pick{margin-top:8px;font-size:12px;color:var(--sub);min-height:18px}
+  .pick b{color:var(--txt);font-variant-numeric:tabular-nums}
+
+  .hbars{display:flex;flex-direction:column;gap:9px}
+  .hb{display:grid;grid-template-columns:112px 1fr 46px;align-items:center;gap:10px;font-size:12.5px}
+  .hb .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hb .tr{background:#f1f3f5;border-radius:5px;height:16px;overflow:hidden}
+  .hb .fl{height:100%;border-radius:5px;background:linear-gradient(90deg,#a78bfa,#7c3aed);
+    transition:width .5s ease}
+  .hb .ct{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  th{text-align:left;color:var(--sub);font-weight:600;font-size:12px;
+    padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 10px;border-bottom:1px solid #f1f2f4;vertical-align:top}
+  th.num{text-align:right}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .tt{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;line-height:1.45}
+  .tt a{color:var(--txt);text-decoration:none}
+  .tt a:hover{color:var(--blue)}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;
+    background:#eff6ff;color:var(--blue);border:1px solid #bfdbfe;margin-right:5px}
+  .tag.g{background:#ecfdf5;color:var(--green);border-color:#a7f3d0}
+  /* 缩略图跟在标题下面, 不单独占一列 */
+  .thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .thumb{width:46px;height:46px;object-fit:cover;border-radius:6px;background:#f1f3f5;
+    border:1px solid var(--line);cursor:zoom-in;transition:transform .15s ease}
+  .thumb:hover{transform:scale(1.08);border-color:var(--blue)}
+  /* 灯箱: 点缩略图看大图 */
+  .lightbox{position:fixed;inset:0;background:rgba(17,24,39,.9);display:none;
+    align-items:center;justify-content:center;z-index:9999;padding:24px}
+  .lightbox.on{display:flex}
+  .lightbox img{max-width:96%;max-height:88vh;object-fit:contain;border-radius:10px;background:#fff}
+  /* 叉号必须用 SVG 画, 不能用 "×" 字符: × 的字形只占 cap-height 区域,
+     下方 descender 是空的, 视觉中心比行盒中心偏上, 怎么调 line-height
+     都跟圆圈不同心。SVG 路径是对称的, 天然居中。 */
+  .lb-close{position:absolute;top:18px;right:18px;width:40px;height:40px;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:50%;cursor:pointer}
+  .lb-close:hover{background:rgba(255,255,255,.26)}
+  /* 多图左右切换。小屏也要能点, 触控区不小于 44px */
+  .lb-nav{position:absolute;top:50%;margin-top:-22px;width:44px;height:44px;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    background:rgba(255,255,255,.14);color:#fff;border:0;border-radius:50%;cursor:pointer}
+  .lb-nav:hover{background:rgba(255,255,255,.26)}
+  .lb-nav.prev{left:14px}
+  .lb-nav.next{right:14px}
+  .lb-nav[hidden]{display:none}          /* 单图时两个箭头都不出现 */
+  /* 子元素的点事件全部忽略, 否则 e.target 会变成 svg/path,
+     判断"点在按钮上"就失效了 */
+  .lb-close svg,.lb-nav svg{pointer-events:none}
+  .lb-count{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);
+    color:#fff;font-size:13px;background:rgba(0,0,0,.45);
+    padding:5px 13px;border-radius:20px;font-variant-numeric:tabular-nums}
+  .pager{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .pg{min-width:32px;height:30px;padding:0 9px;border:1px solid var(--line);
+    background:#fff;color:var(--txt);border-radius:7px;font-size:13px;
+    font-weight:600;cursor:pointer;font-family:inherit}
+  .pg:hover:not(:disabled):not(.on){background:#f3f4f6}
+  .pg.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .pg:disabled{opacity:.4;cursor:not-allowed}
+
+  .av{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#eef0f3;
+    vertical-align:middle;margin-right:7px;flex:0 0 auto}
+  .usr{display:flex;align-items:center;overflow:hidden;cursor:pointer}
+  .usr:active{opacity:.6}
+  .usr .nm{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* 用户组徽章: 取自 userHomev3 的 group_name, 和 getUserInfo 的「用户组」一致, 不用多请求 */
+  .grp{display:none;flex:0 0 auto;font-size:11px;color:#6d28d9;background:#f5f3ff;
+    border:1px solid #ddd6fe;border-radius:5px;padding:1px 5px;margin-left:6px;
+    white-space:nowrap;line-height:1.5}
+  /* 小屏用的元信息行(时间/阅读/回复), 桌面端有表头就不需要 */
+  .met{display:none;align-items:center;font-size:12px;color:var(--sub);
+    margin-top:6px;white-space:nowrap}
+  .met i{font-style:normal;margin-right:3px}
+  .met b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
+  .met .sep{margin:0 7px;color:#d1d5db}
+
+  .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+    padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#1e40af;line-height:1.7}
+  .note b{color:#1d4ed8}
+  .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;
+    padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#78350f;line-height:1.7}
+  .warn b{color:#92400e}
+  .err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
+    padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#991b1b;display:none}
+
+  #msk{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:98;display:none}
+  /* 用户资料卡: 点用户名弹出。手机没有 hover, 所以是点开 + 关闭按钮, 不是悬停浮层 */
+  #pop{position:fixed;z-index:99;display:none;background:#fff;border:1px solid var(--line);
+    border-radius:14px;box-shadow:0 12px 40px rgba(15,23,42,.22);padding:17px 16px 16px;
+    width:274px;max-width:calc(100vw - 36px);font-size:13px;pointer-events:auto;
+    left:50%;top:50%;transform:translate(-50%,-50%)}
+  #pop img{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#eef0f3;
+    flex:0 0 auto}
+  #pop .nm2{font-weight:700;font-size:14.5px;color:var(--txt);text-decoration:none;
+    display:inline-block;max-width:170px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;vertical-align:bottom}
+  #pop .nm2:hover{text-decoration:underline}
+  #pop .rd{color:var(--sub);font-size:12px;margin-top:3px}
+  #pop .st{display:flex;gap:16px;margin-top:11px;padding-top:11px;
+    border-top:1px solid var(--line);font-size:12px;color:var(--sub)}
+  #pop .st b{display:block;font-size:15px;color:var(--txt);font-variant-numeric:tabular-nums}
+  #pop .sg{margin-top:9px;font-size:12px;color:#6b7280;line-height:1.55;word-break:break-word}
+  /* "个性签名"小标签: 不加的话一句签名光秃秃的, 看不出是签名还是别的什么 */
+  #pop .sg i{display:inline-block;font-style:normal;font-size:11px;color:#6b7280;
+    background:#f3f4f6;border-radius:5px;padding:1px 6px;margin-right:6px}
+  #pop .lm{margin-top:9px;font-size:12px;color:#92400e;background:#fffbeb;
+    border:1px solid #fde68a;border-radius:8px;padding:6px 9px}
+  /* 锁主页(琥珀) 和 锁动态(石板灰) 是两码事, 用不同颜色区分 */
+  #pop .lm2{margin-top:7px;font-size:12px;color:#334155;background:#f1f5f9;
+    border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
+  #pop .kv{display:flex;justify-content:space-between;align-items:center;
+    margin-top:9px;font-size:12px;color:var(--sub)}
+  #pop .kv b{color:#6d28d9;font-size:12.5px}
+  #pop .go{display:block;margin-top:11px;text-align:center;padding:8px 0;
+    background:var(--blue);color:#fff;border-radius:9px;text-decoration:none;
+    font-weight:600;font-size:13px}
+  #pop .x{position:absolute;top:9px;right:10px;width:28px;height:28px;
+    display:flex;align-items:center;justify-content:center;padding:0;
+    border:0;background:#f3f4f6;color:#6b7280;border-radius:50%;cursor:pointer}
+  #pop .x svg{pointer-events:none}
+  #pop .x:hover{background:#e5e7eb;color:var(--txt)}
+
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;box-shadow:var(--shadow);margin-bottom:16px}
+  summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--txt)}
+  details .body{margin-top:12px;font-size:12.5px;color:var(--sub);line-height:1.8}
+  details .body b{color:var(--txt)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0}
+  .kv span:nth-child(odd){color:var(--sub)}
+  .kv span:nth-child(even){color:var(--txt);font-variant-numeric:tabular-nums}
+  /* 小屏卡片布局。必须放在样式表最后面 —— .met{display:none} 写在前面,
+     同优先级下"后写的赢", 早放会被它盖掉, 那行就永远不显示。 */
+  @media(max-width:640px){
+    table,tbody,td{display:block;width:auto}
+    thead,colgroup{display:none}
+    table{table-layout:auto}
+    /* 不用 flex-wrap: 它会让元信息随机换行, 阅读/回复被拆散。
+       改成 grid 明确分行, 时间/阅读/回复合成 .met 独占最后一行 */
+    tr{display:grid;grid-template-columns:auto 1fr;align-items:start;
+       grid-template-areas:"tit tit" "usr brd" "met met";
+       gap:7px 10px;padding:12px 0;border-bottom:1px solid #f1f2f4}
+    td{border:0;padding:0}
+    td:nth-child(2){grid-area:tit}
+    td:nth-child(3){grid-area:brd;text-align:right}
+    /* 原来独立的时间/阅读/回复三列在小屏隐藏, 改由 .met 一行显示 */
+    td:nth-child(4),td:nth-child(5),td:nth-child(6){display:none}
+    /* td1 拆成 contents, 让 .usr 和 .met 各自成为网格项 ——
+       否则 .met 困在"用户"列里, 会被用户名宽度挤压 */
+    td:nth-child(1){display:contents}
+    td:nth-child(1) > .usr{grid-area:usr}
+    .met{display:flex;grid-area:met;margin-top:0}
+    .av{width:30px;height:30px}
+    /* 多张图必须横排, 不换行; 放不下就横向滑 */
+    .thumbs{flex-wrap:nowrap;overflow-x:auto;margin-top:7px;padding-bottom:2px}
+    .thumb{width:58px;height:58px;flex:0 0 auto}
+    .thumb:hover{transform:none}
+    .tt{-webkit-line-clamp:3}
+    /* 灯箱: 屏幕窄, 箭头靠边收一点, 别压住图 */
+    .lb-nav{width:40px;height:40px;margin-top:-20px}
+    .lb-nav.prev{left:6px}
+    .lb-nav.next{right:6px}
+    .lb-close{top:12px;right:12px;width:36px;height:36px}
+  }
+</style>
+</head>
+<body>
+<!-- 关了 JS 就只剩一堆空壳: 数据全靠浏览器直连接口取, 没有脚本什么都跑不起来。
+     这里既提示, 也把空面板藏掉, 免得看着像"坏了但不知道哪坏了"。 -->
+<noscript>
+  <style>.grid,.panel,.row,details,.note{display:none!important}</style>
+  <div class="wrap">
+    <div class="err" style="display:block">
+      <b>这个页面需要 JavaScript 才能工作，当前已被禁用。</b><br>
+      帖子是你自己的浏览器直接向卡农接口请求的、存在浏览器本地库里，
+      没有脚本就取不到数据，页面只剩空壳。<br>
+      请在浏览器设置里打开 JavaScript（手机浏览器一般在「设置 → 网站设置 / 高级」里），
+      然后刷新本页。
     </div>
-  
-    <ul class="card-archive-list">
-      
-        <li class="card-archive-list-item">
-          <a class="card-archive-list-link" href="/archives/2026/05/">
-            <span class="card-archive-list-date">
-              五月 2026
-            </span>
-            <span class="card-archive-list-count">1</span>
-          </a>
-        </li>
-      
-    </ul>
-  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">1</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-05-28T06:34:07.451Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2026 By 雨落倾城</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.4<!-- 添加备案号--></a></span></div><div class="footer-beian"><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener">新ICP备2024008140号-1</a><span class="footer-separator">|</span><a href="http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=65312202000031" target="_blank" rel="noopener">新公网安备65312202000031号</a></div><div class="footer_custom_text">© 2026 小宇的碎碎念</div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.4"></script><script src="/js/main.js?v=5.5.4"></script><div class="js-pjax"><script>window.typedJSFn = {
-  init: str => {
-    window.typed = new Typed('#subtitle', Object.assign({
-      strings: str,
-      startDelay: 300,
-      typeSpeed: 150,
-      loop: true,
-      backSpeed: 50,
-    }, null))
-  },
-  run: subtitleType => {
-    if (true) {
-      if (typeof Typed === 'function') {
-        subtitleType()
-      } else {
-        btf.getScript('https://cdn.jsdelivr.net/npm/typed.js@3.0.0/dist/typed.umd.min.js').then(subtitleType)
+  </div>
+</noscript>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">卡农社区 <span>实时面板</span></div>
+    <div class="meta"><span class="dot" id="dot"></span><span id="state">正在打开本地库…</span></div>
+    <div class="spacer"></div>
+    <div class="tag" id="tsTag">最近 24 小时</div>
+    <select id="host">
+      <option value="https://my.kanong01.com" data-cat="7">卡农社区</option>
+      <option value="https://fen.kanong01.com" data-cat="27">卡农APP</option>
+    </select>
+    <button id="btn">采集</button>
+    <button id="auto" class="ghost sm">自动:15s</button>
+  </div>
+
+  <div class="note" id="topNote">
+      <b>只看最近 24 小时。</b>页面直连卡农接口取数，不经过任何服务器；打开先拉前 3 页出内容，
+      然后<b>在第 1 页时每 15 秒刷一轮新帖</b>，同时后台接着翻第 4 页往后补全 24 小时
+      （翻到第 2 页往后会自动暂停刷新，回到第 1 页立刻补一轮；点"自动"可改成 60 秒 / 5 分钟 / 关掉）。
+      采到的数据存进本地 IndexedDB，<b>超过 48 小时的自动清掉</b>，库不会越攒越大。换浏览器 / 清缓存会丢，可用下面的导出备份。
+  </div>
+
+  <div class="warn" id="dbWarn" style="display:none">
+    <b>本地存储不可用</b>（可能是隐私模式）。本次数据只在内存里，关掉页面就没了。
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="panel">
+    <h3>发帖密度 <span class="wtag" id="tsTag">24 小时</span></h3>
+    <div class="hint" id="tsHint">按时间分桶，左旧右新 · 点柱子看时段</div>
+    <div class="bars" id="ts"></div>
+    <div class="axis" id="tsAxis"></div>
+    <div class="pick" id="tsPick"></div>
+  </div>
+
+  <div class="row">
+    <div class="panel">
+      <h3>板块分布</h3>
+      <div class="hbars" id="boards"></div>
+    </div>
+    <div class="panel">
+      <h3>活跃用户 Top 10</h3>
+      <div class="hint">鼠标悬停看头像和主页配置</div>
+      <div class="hbars" id="users"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>帖子列表 <span class="wtag" id="listTag">24 小时</span></h3>
+    <div class="hint">点标题跳原站 · 悬停用户名看资料</div>
+    <table>
+      <colgroup>
+        <col style="width:172px"><col>
+        <col style="width:94px"><col style="width:60px"><col style="width:60px"><col style="width:86px">
+      </colgroup>
+      <thead><tr>
+        <th>用户</th><th>标题</th><th>板块</th>
+        <th class="num">阅读</th><th class="num">回复</th><th class="num">时间</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="pager" id="pager"></div>
+    <div class="hint" style="text-align:center" id="pgHint"></div>
+  </div>
+
+  <details>
+    <summary>本地库管理 · 导出备份</summary>
+    <div class="body">
+      <div class="kv" id="dbStat"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <button class="ghost sm" id="btnExport">导出 JSON</button>
+        <button class="ghost sm" id="btnImport">导入 JSON</button>
+        <button class="ghost sm" id="btnWipe">清空本地库</button>
+        <input type="file" id="fileIn" accept=".json" style="display:none">
+      </div>
+      <div style="margin-top:12px">
+        <b>关于隐私：</b>本页不上传任何数据，也没有后端。帖子只存在你自己的浏览器里，
+        别人打开看到的是他自己的空库。采集请求由你的网络直接发往卡农服务器。
+      </div>
+    </div>
+  </details>
+
+</div>
+
+<div id="msk"></div>
+<div id="pop"></div>
+<div class="lightbox" id="lb">
+  <button class="lb-close" id="lbClose" aria-label="关闭">
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+         stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <button class="lb-nav prev" id="lbPrev" aria-label="上一张" hidden>
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4l-8 8 8 8"/></svg>
+  </button>
+  <button class="lb-nav next" id="lbNext" aria-label="下一张" hidden>
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4l8 8-8 8"/></svg>
+  </button>
+  <!-- onerror: 大图挂了(防盗链/过期)就藏起来, 别留一个裂图图标。
+       注意内联事件里访问不到页面脚本的 const $(它不是 window 属性), 只能用 getElementById -->
+  <img id="lbImg" src="" alt=""
+       onerror="this.style.visibility='hidden';var c=document.getElementById('lbCount');if(c)c.textContent='图片加载失败'">
+  <div class="lb-count" id="lbCount"></div>
+</div>
+
+<script>
+"use strict";
+
+const FID_NAMES = {"169":"羊毛交流","282":"羊毛专区","285":"老哥生活"};
+// 实测: step 越大反而拿得越少(step=500 时第 4 页就空), 200 是稳定值
+const STEP = 200;
+const PAGE_SIZE = 20;
+const DB_NAME = "kanong-direct";
+const DB_VER = 1;
+const STAT_MAX = 60000;      // 统计时最多读多少条, 防卡
+
+// 只看最近 24 小时 —— 接口回不去 7 天, 硬翻也没用, 所以不做深度选项
+const WIN_H   = 24;          // 统计窗口(小时), 固定
+const GOAL_H  = 24;          // 采集目标: 回溯到 24 小时前就停
+const KEEP_H  = 48;          // 库里最多留这么久, 超了自动删(库恒定几百 KB)
+const MAX_PAGE = 40;         // 单次采集最多翻多少页, 防失控
+const FRESH_PAGE = 3;        // 快刷只翻前几页: 新帖都在最前面, 不用往下找
+const AUTO_STEPS = [15000, 60000, 300000, 0];   // 自动档位: 15s -> 60s -> 5min -> 关
+
+let ALL = [];                // 库内全量(倒序)
+let VIEW = [];               // 当前时间窗口
+let page = 1;
+let busy = false;
+// 默认 15 秒刷一轮新帖(只翻前几页, 很轻); 点"自动"切 60s -> 5min -> 关
+const AUTO_DEFAULT = AUTO_STEPS[0];
+let autoMs = AUTO_DEFAULT;
+let autoLeft = AUTO_DEFAULT / 1000;
+// 定时刷新走快刷, 不要每 15 秒都去重翻 24 小时
+const refresh = () => collect(false);
+// 只在第 1 页自动刷新 —— 翻到第 2 页往后是在翻旧帖, 列表被新数据重排会跳走, 打扰阅读。
+// 回到第 1 页时立刻补一轮, 不用干等倒计时。
+const canAuto = () => page === 1;
+let pendingFresh = false;    // 补全过程中攒下的刷新请求, 由补全在翻页间隙插空执行
+let lastFreshAt = 0;         // 上次快刷时刻, 用来限流(补全途中别刷太勤)
+let dbOk = true;
+
+const avatarCache = new Map();
+const avatarFail = new Map();    // uid -> 下次可重试的时间戳, 防失败后疯狂重试
+const homeCache = new Map();
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------- 工具
+function fmtAgo(ts){
+  const s = Math.floor(Date.now()/1000) - ts;
+  if (s < 60) return "刚刚";
+  if (s < 3600) return Math.floor(s/60) + "分前";
+  if (s < 86400) return Math.floor(s/3600) + "小时前";
+  return Math.floor(s/86400) + "天前";
+}
+function fmtClock(ts){
+  const d = new Date(ts*1000);
+  const p = (n) => String(n).padStart(2,"0");
+  return p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, (c) =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+// 两端的数值字段类型不一致 —— my 端 click 是数字 78, fen 端是字符串 "78阅读"。
+// JS 里 0 + "78阅读" 不报错而是拼成字符串, 累加出来是一坨垃圾。
+// 所以入库前一律规范化, 别指望下游各自处理。
+function num(v){
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  if (typeof v === "string"){
+    const m = v.match(/\d+/);
+    return m ? parseInt(m[0], 10) : 0;
+  }
+  return 0;
+}
+function norm(it){
+  if (!it || typeof it !== "object") return it;
+  it.click = num(it.click);
+  it.comment_count = num(it.comment_count);
+  it.publish_time = num(it.publish_time);
+  return it;
+}
+function boardOf(p){ return FID_NAMES[String(p.type_value)] || ("板块" + p.type_value); }
+// 接口给的 tburl 和 url 其实是同一个地址(只有水印, 没有缩放) ——
+// 按 46px 显示却下载上百 KB 原图太浪费, 自己插一段 OSS resize。实测 109KB -> 6KB。
+// 灯箱仍然用原图 url, 保证放大后清晰。
+function thumbUrl(u){
+  if (!u) return "";
+  if (u.indexOf("x-oss-process=image/") >= 0)
+    return u.replace("x-oss-process=image/", "x-oss-process=image/resize,w_160/");
+  return u;
+}
+function postUrl(p){
+  // 优先用接口返回的 link: 两端各自的域名可能不同, 硬编码 my 域名在 fen 端采的帖子上会串
+  const l = p.link && String(p.link).trim();
+  if (l && /^https?:\/\//.test(l)) return l;
+  return "https://my.kanongquan.com/mag/circle/v1/forum/threadViewPage?tid=" + p.id;
+}
+
+// ---------------------------------------------------------------- IndexedDB
+let _db = null;
+function dbOpen(){
+  return new Promise((res, rej) => {
+    if (_db) return res(_db);
+    const rq = indexedDB.open(DB_NAME, DB_VER);
+    rq.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains("posts")){
+        const s = d.createObjectStore("posts", {keyPath:"id"});
+        s.createIndex("pt", "publish_time");
       }
-    } else {
-      subtitleType()
+    };
+    rq.onsuccess = (e) => { _db = e.target.result; res(_db); };
+    rq.onerror = () => rej(new Error("IndexedDB 打开失败"));
+  });
+}
+function dbPut(list){
+  if (!list.length) return Promise.resolve(0);
+  return dbOpen().then(d => new Promise((res, rej) => {
+    const t = d.transaction("posts", "readwrite");
+    const s = t.objectStore("posts");
+    // 缺 id 的一条 put 失败会让整个事务回滚 —— 导入的脏数据会把整批带走
+    let n = 0;
+    for (const it of list){
+      if (!it || it.id == null || it.publish_time == null) continue;
+      s.put(it); n++;
     }
-  },
-  processSubtitle: (content, extraContents = []) => {
-    if (true) {
-      const sub = ["小宇的碎碎念","记录学习与成长"].slice()
+    t.oncomplete = () => res(n);
+    t.onerror = () => rej(new Error("写入失败"));
+    t.onabort = () => rej(new Error("写入被中止"));
+  }));
+}
+function dbAll(){
+  return dbOpen().then(d => new Promise((res, rej) => {
+    const out = [];
+    const rq = d.transaction("posts", "readonly").objectStore("posts").openCursor();
+    rq.onsuccess = (e) => {
+      const c = e.target.result;
+      if (c){ out.push(c.value); c.continue(); } else res(out);
+    };
+    rq.onerror = () => rej(new Error("读取失败"));
+  }));
+}
+function dbDeleteOlderThan(ts){
+  return dbOpen().then(d => new Promise((res) => {
+    const t = d.transaction("posts", "readwrite");
+    const s = t.objectStore("posts");
+    const rq = s.index("pt").openKeyCursor(IDBKeyRange.upperBound(ts, true));
+    let n = 0;
+    rq.onsuccess = (e) => {
+      const c = e.target.result;
+      if (c){ s.delete(c.primaryKey); n++; c.continue(); }
+    };
+    t.oncomplete = () => res(n);
+    t.onerror = () => res(n);
+  }));
+}
+function dbClear(){
+  return dbOpen().then(d => new Promise((res) => {
+    const t = d.transaction("posts","readwrite");
+    t.objectStore("posts").clear();
+    t.oncomplete = () => res(true);
+    t.onerror = () => res(false);
+  }));
+}
 
-      if (extraContents.length > 0) {
-        sub.unshift(...extraContents)
-      }
+// ---------------------------------------------------------------- 取数
+// 注意: 这里刻意**不设** user-agent。浏览器禁止 JS 改 UA(fetch 里写了也会被丢掉),
+// 所以请求天然带着访问者自己浏览器的 UA —— 手机上就是手机 UA, 电脑上就是电脑 UA。
+// 别去硬编码某个 UA: 那既写不进去, 也会让所有人的请求长得一模一样。
+async function getJSON(url){
+  const r = await fetch(url, {headers:{accept:"application/json"}, cache:"no-store"});
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
 
-      if (typeof content === 'string') {
-        sub.unshift(content)
-      } else if (Array.isArray(content)) {
-        sub.unshift(...content)
-      }
+// deep=true  补全 24 小时(翻到够老为止, 十几页)
+// deep=false 快刷新帖: 只翻前 FRESH_PAGE 页, 新帖都在最前面, 一两秒就完事
+async function collect(deep = true){
+  if (busy) return;
+  busy = true;
+  $("btn").disabled = true;
+  $("dot").className = "dot run";
 
-      sub.length > 0 && typedJSFn.init(sub)
-    } else {
-      document.getElementById('subtitle').textContent = typeof content === 'string' ? content :
-        (Array.isArray(content) && content.length > 0 ? content[0] : '')
+  const host = $("host").value;
+  const cat  = $("host").selectedOptions[0].dataset.cat;
+  const seen = new Set(curPosts().map(p => p.id));
+  // 翻到"最老一条早于 24 小时前"就停 —— 一天约 1600~3000 帖, step=200 大概 8~15 页
+  const goalLo = Date.now()/1000 - GOAL_H*3600;
+  // 快刷翻 1~FRESH_PAGE(新帖都在最前面); 补全从 FRESH_PAGE+1 接上, 不重复翻前几页
+  const p0 = deep ? FRESH_PAGE + 1 : 1;
+  const maxPage = deep ? MAX_PAGE : FRESH_PAGE;
+
+  let fresh = 0;
+  // 合并进 ALL 并保持倒序
+  const merge = (arr) => {
+    const m = new Map(ALL.map(p => [p.id, p]));
+    for (const it of arr) m.set(it.id, it);
+    ALL = [...m.values()].sort((a,b) => b.publish_time - a.publish_time);
+  };
+
+  // 拉一页: 入库 + 立刻渲染。返回 null = 到头/失败, 由调用方决定停不停
+  const pull = async (p) => {
+    const url = host + "/mag/info/v2/channel/infoListByCatId"
+              + "?p=" + p + "&cat_id=" + cat + "&step=" + STEP;
+    let list;
+    try{
+      list = (await getJSON(url)).list || [];
+    }catch(e){
+      if (p === p0) throw e;        // 起始页都失败 -> 整体失败, 交给外层提示
+      return null;                  // 中途失败就算了, 已采的照样入库
     }
+    if (!list.length) return null;  // 接口到底
+    // 每页采完立刻入库 + 渲染 —— 翻满 24 小时要走十几页, 不能让用户干等
+    const part = list.map(norm);
+    let freshHere = 0;
+    for (const it of part) if (!seen.has(it.id)){ seen.add(it.id); freshHere++; }
+    fresh += freshHere;
+    if (dbOk && part.length) await dbPut(part);
+    merge(part);
+    render();
+    let lo = Infinity;
+    for (const it of part){
+      const t = it.publish_time || 0;
+      if (t && t < lo) lo = t;
+    }
+    return {freshHere, lo};
+  };
+
+  // 快刷前几页。补全途中也会插空调它 —— 新帖只看前几页就够
+  const burst = async () => {
+    lastFreshAt = Date.now();
+    for (let q = 1; q <= FRESH_PAGE; q++){
+      // 补全途中插空刷时状态栏会僵在"第 N 页"十几秒, 看着像卡住 —— 明确说是去刷新帖了
+      $("state").textContent = "刷新中 · 第 " + q + " 页";
+      const r = await pull(q);
+      if (!r) break;
+      if (r.freshHere === 0) break;   // 整页都是库里已有的 -> 追平了
+    }
+  };
+  lastFreshAt = Date.now();
+
+  try{
+    for (let p = p0; p <= maxPage; p++){
+      const r = await pull(p);
+      if (!r) break;
+
+      const cov = (Date.now()/1000 - r.lo) / 3600;
+      $("state").textContent = (deep ? "采集中" : "刷新中") + " · 第 " + p + " 页"
+        + (deep ? " · 已回溯 " + cov.toFixed(1) + " 小时" : "");
+      if (r.lo <= goalLo) break;                 // 够 24 小时了
+      // "整页都是旧帖就停"只对快刷成立 —— 快刷的目的就是追平。
+      // 补全**不能**用这条: 它从第 FRESH_PAGE+1 页起步, 翻到的本来全是旧帖,
+      // 一 break 就停在 5 小时, 24 小时永远补不全(实测只留 600 条)。
+      // 补全只看"够不够 24 小时"和"接口还有没有"。
+      if (!deep && r.freshHere === 0) break;
+      // 补全要走十几页几十秒, 这段时间首页的新帖不能一直不动 ——
+      // 到点就插一轮快刷, 刷完再接着往下补
+      if (deep && pendingFresh && page === 1){
+        pendingFresh = false;
+        await burst();
+      }
+      await new Promise(r2 => setTimeout(r2, 150));
+    }
+
+    const dropped = await pruneOld();
+    render();
+    $("dot").className = "dot";
+    $("state").textContent = (deep ? "就绪" : "已刷新")
+      + " · 24 小时内 " + VIEW.length.toLocaleString()
+      + " 帖 · 本次新增 " + fresh + (dropped ? " · 清理过期 " + dropped : "");
+    $("err").style.display = "none";
+  }catch(e){
+    $("dot").className = "dot down";
+    $("state").textContent = "采集失败";
+    const box = $("err");
+    box.style.display = "block";
+    box.innerHTML = "<b>采集失败：</b>" + esc(e.message)
+      + " —— 可能是网络不通、接口变更，或卡农侧临时限流。稍后再试即可。";
+  }finally{
+    busy = false;
+    $("btn").disabled = false;
+    autoLeft = autoMs / 1000;   // 一轮采完重新计时
+    // 补全期间攒下、但还没轮到插空的刷新请求: 下一秒就跑, 别再等满一轮
+    if (deep && pendingFresh && page === 1 && autoMs > 0) autoLeft = 0;
+    pendingFresh = false;
+    autoLabel();
   }
 }
-btf.addGlobalFn('pjaxSendOnce', () => { typed.destroy() }, 'typedDestroy')
-</script><script>function subtitleType () {
-  typedJSFn.processSubtitle(["小宇的碎碎念","记录学习与成长"])
+
+// ---------------------------------------------------------------- 渲染
+// 两端其实是同一个论坛的两个频道入口 —— 实测返回的帖子 id 完全相同。
+// 所以库必须共享: 按端过滤会让另一端攒的数据"凭空消失"(改过一次, 别再改回去)。
+// 切端只是换个 cat_id 采集, 采到的都进同一个库, 按 id 去重。
+function curPosts(){ return ALL; }
+// 窗口固定 24 小时, 不提供切换 —— 接口最多回溯约 5 天(=50 页 × step200, 约 3 分钟),
+// 7 天拿不到, 与其给个点不动的按钮不如不做
+function applyWindow(){
+  const lo = Date.now()/1000 - WIN_H*3600;
+  VIEW = curPosts().filter(p => p.publish_time >= lo);
+  $("tsTag").textContent = "最近 24 小时";
+  $("listTag").textContent = "24 小时";
 }
-typedJSFn.run(subtitleType)</script></div><script id="canvas_nest" defer="defer" color="0,150,255" opacity="0.7" zIndex="-1" count="80" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/canvas-nest.min.js"></script><script id="click-heart" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/dist/click-heart.min.js" async="async" mobile="false"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
+
+// 库只保留 KEEP_H 小时, 超了自动删 —— 库就不会越攒越大
+async function pruneOld(){
+  const lo = Date.now()/1000 - KEEP_H*3600;
+  const drop = ALL.filter(p => p.publish_time < lo);
+  if (!drop.length) return 0;
+  if (dbOk) await dbDeleteOlderThan(lo);
+  ALL = ALL.filter(p => p.publish_time >= lo);
+  return drop.length;
+}
+
+function render(){
+  applyWindow();
+  renderKPI();
+  renderTimeline();
+  renderBoards();
+  renderUsers();
+  renderRows();
+  renderDbStat();
+}
+
+function renderKPI(){
+  // 全量展开进 Math.max 会在几万条时爆栈, 统计一律先截断
+  const src = VIEW.slice(0, STAT_MAX);
+  const n = VIEW.length;
+  let users = 0, today = 0;
+  if (src.length){
+    const us = new Set();
+    const d0 = new Date(); d0.setHours(0,0,0,0);
+    const t0 = d0.getTime()/1000;          // 今天零点
+    for (const p of src){
+      if (p.user_id) us.add(p.user_id);
+      if (p.publish_time >= t0) today++;
+    }
+    users = us.size;
+  }
+  // 只留这三个: 总阅读 / 数据跨度 / 板块数 用户不要, 已删
+  const cards = [
+    ["24 小时帖子", n.toLocaleString(), "最近一整天，不随筛选变"],
+    ["今日帖子", today.toLocaleString(), "今天零点起算"],
+    ["活跃用户", users.toLocaleString(), "去重后"],
+  ];
+  $("kpis").innerHTML = cards.map(([lb,vl,ex]) =>
+    '<div class="kpi"><div class="lb">'+lb+'</div><div class="vl">'+vl+'</div>'
+    + '<div class="ex">'+ex+'</div></div>').join("");
+}
+
+// 柱子只有高度没带时间, 点它时要靠这套分桶信息反推它代表哪一段
+let TS = null;
+function renderTimeline(){
+  if (!VIEW.length){
+    // 三处都要清: 只清柱子和轴的话, 上次点出来的"xx ~ xx · N 帖"会一直挂着
+    $("ts").innerHTML = ""; $("tsAxis").innerHTML = ""; $("tsPick").innerHTML = "";
+    TS = null;
+    return;
+  }
+  const src = VIEW.slice(0, STAT_MAX);
+  const ts = src.map(p => p.publish_time);
+  let lo = Infinity, hi = -Infinity;
+  for (const t of ts){ if (t < lo) lo = t; if (t > hi) hi = t; }
+  const span = Math.max(hi - lo, 600);
+  const buckets = span > 86400*3 ? 24 : (span > 21600 ? 20 : 16);
+  const w = span / buckets;
+  const cnt = new Array(buckets).fill(0);
+  for (const t of ts){
+    let i = Math.floor((t - lo) / w);
+    if (i >= buckets) i = buckets - 1;
+    if (i < 0) i = 0;
+    cnt[i]++;
+  }
+  const mx = Math.max(...cnt, 1);
+  $("ts").innerHTML = cnt.map((v,i) =>
+    '<div class="b" data-i="'+i+'" style="height:'+(v/mx*100)+'%" title="'+v+' 帖"></div>').join("");
+  $("tsAxis").innerHTML = "<span>"+fmtClock(lo)+"</span><span>"+fmtClock(hi)+"</span>";
+  $("tsHint").textContent = buckets + " 个桶，每桶约 " + Math.round(w/60)
+    + " 分钟，左旧右新 · 点柱子看时段";
+  // 柱子只有高度没有时间, 点击时要用这套分桶信息反推它代表哪一段
+  TS = {lo, w, buckets, cnt, hi};
+  $("tsPick").innerHTML = "";
+}
+
+// 点柱子 -> 显示它对应的时间段。重绘后 TS 会一起更新, 不会读到旧桶
+$("ts").onclick = (e) => {
+  const b = e.target.closest(".b");
+  if (!b || !TS) return;
+  const i = parseInt(b.dataset.i, 10);
+  const a = TS.lo + i * TS.w;
+  const z = Math.min(a + TS.w, TS.hi);       // 最后一桶别超过最新一帖
+  document.querySelectorAll("#ts .b.on").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+  $("tsPick").innerHTML = '<b>' + fmtClock(a) + ' ~ ' + fmtClock(z) + '</b> · '
+    + TS.cnt[i] + ' 帖';
+};
+
+function renderBoards(){
+  const m = new Map();
+  for (const p of VIEW.slice(0, STAT_MAX)){
+    const k = boardOf(p);
+    m.set(k, (m.get(k)||0) + 1);
+  }
+  const arr = [...m.entries()].sort((a,b)=>b[1]-a[1]);
+  const mx = arr.length ? arr[0][1] : 1;
+  $("boards").innerHTML = arr.length ? arr.map(([k,v]) =>
+    '<div class="hb"><div class="nm">'+esc(k)+'</div>'
+    + '<div class="tr"><div class="fl" style="width:'+(v/mx*100)+'%"></div></div>'
+    + '<div class="ct">'+v+'</div></div>').join("") : '<div class="hint">无数据</div>';
+}
+
+function renderUsers(){
+  const m = new Map();
+  for (const p of VIEW.slice(0, STAT_MAX)){
+    const k = String(p.user_id || "");
+    if (!k) continue;
+    let e = m.get(k);
+    if (!e){ e = {n:p.user_name || "匿名", c:0}; m.set(k, e); }
+    e.c++;
+  }
+  const arr = [...m.entries()].sort((a,b)=>b[1].c-a[1].c).slice(0,10);
+  const mx = arr.length ? arr[0][1].c : 1;
+  $("users").innerHTML = arr.length ? arr.map(([uid,e]) =>
+    '<div class="hb"><div class="nm usr" data-uid="'+uid+'">'
+    + '<img class="av" data-av="'+uid+'" src="'+avatarUrl(uid)+'">'
+    + esc(e.n)+'</div>'
+    + '<div class="tr"><div class="fl" style="width:'+(e.c/mx*100)+'%"></div></div>'
+    + '<div class="ct">'+e.c+'</div></div>').join("") : '<div class="hint">无数据</div>';
+  arr.forEach(([uid]) => loadAvatar(uid));
+}
+
+function renderRows(){
+  const total = Math.max(Math.ceil(VIEW.length / PAGE_SIZE), 1);
+  if (page > total) page = total;
+  const slice = VIEW.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+  $("rows").innerHTML = slice.map(p => {
+    // 缩略图取前 4 张, 排在标题下面 —— 单列塞图会把标题挤得看不见
+    const pics = (p.pics_arr || []).slice(0, 4);
+    const thumbs = pics.length
+      ? '<div class="thumbs">' + pics.map(it => {
+          const big = it.url || it.tburl || "";
+          // onerror 直接把破图挪走: 图挂了(过期/防盗链)时留一个裂图图标很难看
+          return big ? '<img class="thumb" loading="lazy" src="'+esc(thumbUrl(it.tburl || it.url))+'"'
+                      + ' data-big="'+esc(big)+'"'
+                      + ' onerror="this.remove()">' : "";
+        }).join("") + '</div>'
+      : "";
+    return '<tr>'
+      + '<td><div class="usr" data-uid="'+p.user_id+'">'
+        + '<img class="av" data-av="'+p.user_id+'" loading="lazy" src="'+avatarUrl(p.user_id)+'">'
+        + '<span class="nm">'+esc(p.user_name || "匿名")+'</span>'
+        + '<span class="grp" data-grp="'+p.user_id+'"></span></div>'
+      + '<div class="met"><span>'+esc(fmtAgo(num(p.publish_time)))+'</span>'
+        + '<span class="sep">·</span><span><i>阅读</i><b>'+num(p.click)+'</b></span>'
+        + '<span class="sep">·</span><span><i>回复</i><b>'+num(p.comment_count)+'</b></span>'
+        + '</div></td>'
+      + '<td><div class="tt"><a href="'+esc(postUrl(p))+'" target="_blank" rel="noreferrer">'
+        + esc((p.title||"").trim())+'</a></div>' + thumbs + '</td>'
+      + '<td><span class="tag'+(p.type_value===169?"":" g")+'">'+esc(boardOf(p))+'</span></td>'
+      + '<td class="num">'+num(p.click)+'</td>'
+      + '<td class="num">'+num(p.comment_count)+'</td>'
+      + '<td class="num" title="'+fmtClock(num(p.publish_time))+'">'+fmtAgo(num(p.publish_time))+'</td>'
+      + '</tr>';
+  }).join("") || '<tr><td colspan="6" style="color:#6b7280">这个时间窗口内还没有数据，先点采集</td></tr>';
+
+  slice.forEach(p => loadAvatar(String(p.user_id)));
+
+  let html = "";
+  const show = Math.min(total, 12);
+  for (let i = 1; i <= show; i++)
+    html += '<button class="pg'+(i===page?" on":"")+'" data-p="'+i+'">'+i+'</button>';
+  html += '<span style="color:#6b7280;font-size:12px;margin-left:6px">共 '
+        + VIEW.length.toLocaleString() + ' 帖 / ' + total + ' 页</span>';
+  $("pager").innerHTML = html;
+  // 自动刷新只在第 1 页跑, 这句告诉用户为什么翻页后新帖不动了
+  $("pgHint").textContent = (autoMs === 0 || page === 1) ? "" : "已暂停自动刷新（只看第 1 页时刷新），回到第 1 页会立刻刷新";
+}
+
+// 估算很贵(要 JSON.stringify 一批帖子), 而快刷 15 秒一轮会频繁进这里。
+// 库里条数没变就复用上次结果, 别每轮都重新序列化。
+let _szN = -1, _szMB = 0;
+async function renderDbStat(){
+  if (ALL.length !== _szN){
+    _szN = ALL.length;
+    const n = Math.min(ALL.length, 500);
+    try{
+      _szMB = new Blob([JSON.stringify(ALL.slice(0, n))]).size * (ALL.length/n || 1) / 1048576;
+    }catch(e){ _szMB = 0; }
+  }
+  // ALL 已按时间倒序, 最早一条就是末尾, 不用 Math.min 展开
+  const earliest = ALL.length ? ALL[ALL.length-1].publish_time : 0;
+  $("dbStat").innerHTML =
+      '<span>库内帖子</span><span>' + ALL.length.toLocaleString() + ' 条（两端共享，超 ' + KEEP_H + ' 小时自动清）</span>'
+    + '<span>最早一条</span><span>' + (earliest ? fmtClock(earliest) + "（" + ((Date.now()/1000 - earliest)/3600).toFixed(1) + " 小时前）" : "-") + '</span>'
+    + '<span>估算占用</span><span>' + _szMB.toFixed(1) + ' MB</span>'
+    + '<span>存储状态</span><span>' + (dbOk ? "IndexedDB 正常" : "不可用（内存模式）") + '</span>'
+    // 把实际发出去的 UA 摆出来, 一眼能确认是"访问者自己的浏览器"而不是写死的某个值。
+    // 顺带说明: 浏览器不让 JS 改 UA, 想假装也假装不了
+    + '<span>请求标识</span>'
+    + '<span title="浏览器自带，JS 改不了：' + esc(navigator.userAgent) + '"'
+    + ' style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+    + esc(navigator.userAgent) + '</span>';
+}
+
+// ---------------------------------------------------------------- 头像
+// 头像直接走 ucenter 的图片接口, 不用等 userHomev3 返回 ——
+//   https://ucenter.kanong.com/avatar.php?uid=<uid>&size=small|middle|big
+// 实测: 无防盗链(不带 Referer 也 200), CDN 缓存 30 天,
+//        uid 不存在时返回一张 1574B 的默认 GIF(不会破图),
+//        small 约 1.3KB, 而接口给的 head 原图约 5KB, 手机流量省 4 倍。
+function avatarUrl(uid, size){
+  return "https://ucenter.kanong.com/avatar.php?uid=" + uid + "&size=" + (size || "small");
+}
+
+async function loadAvatar(uid){
+  if (!uid) return;
+  if (avatarCache.has(uid)){ paint(uid); return; }
+  // 这个懒加载现在只为拿用户组徽章(group_name)。失败过就一分钟内别再试,
+  // 否则 15 秒一轮的刷新会把失败的 uid 反复打请求
+  if (Date.now() < (avatarFail.get(uid) || 0)) return;
+  avatarCache.set(uid, null);
+  try{
+    const d = await getJSON($("host").value + "/mag/user/v3/user/userHomev3?user_id=" + uid);
+    const dd = d.data || {};
+    homeCache.set(uid, dd);
+    avatarCache.set(uid, dd.head || "");
+    paint(uid);
+  }catch(e){
+    // 关键: 必须删掉占位。留着的话 avatarCache.has(uid) 永远为真,
+    // 这一次网络抖动就让这个用户的徽章再也补不上
+    avatarCache.delete(uid);
+    avatarFail.set(uid, Date.now() + 60000);
+  }
+}
+// 头像已经在渲染时直接指向 ucenter, 这里不再改 src ——
+// 否则会把 1.3KB 的 small 换成 5KB 的 OSS 原图, 白费流量。
+// 这个懒加载现在只为拿用户组徽章(group_name)。
+function paint(uid){
+  const g = ((homeCache.get(uid) || {}).group_name || "").trim();
+  document.querySelectorAll('[data-grp="'+uid+'"]').forEach(el => {
+    el.textContent = g;
+    el.style.display = g ? "inline-block" : "none";   // 没拿到就不占位
+  });
+}
+
+const pop = $("pop"), msk = $("msk");
+// 叉号用 SVG 画: "×" 字符的字形偏上, 跟圆形按钮不同心
+const XBTN = '<button class="x" id="popX" aria-label="关闭"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>';
+// 主页被锁时 fans_count / follow_count 会返回空串而不是 null, ?? 兜不住, 得单独判
+const dash = (v) => (v === null || v === undefined || v === "" ? "-" : v);
+
+function closePop(){ pop.style.display = "none"; msk.style.display = "none"; }
+
+const infoCache = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
+
+// getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
+// 注意: 主页被锁(privacy=1)时这里全是空, 拿不到注册天数 —— 属正常。
+async function loadInfo(uid){
+  if (!uid) return {};
+  if (infoCache.has(uid)) return infoCache.get(uid);
+  const out = {};
+  try{
+    const d = await getJSON($("host").value + "/mag/user/v3/user/getUserInfo?user_id=" + uid);
+    for (const blk of (d.data || [])){
+      if (blk.type !== "info") continue;
+      for (const it of (blk.data || [])){
+        if (it && it.name != null) out[it.name] = it.value;
+      }
+    }
+  }catch(e){}
+  infoCache.set(uid, out);
+  return out;
+}
+
+// 用户主页链接: 统一拼网页版 (www.51kanong.com/s-uid-<uid>.htm)。
+// 接口 sharedata.linkurl 给的是 WAP 主页, 手机上排版很挤, 网页版好用得多。
+function homeUrl(uid){
+  return "https://www.51kanong.com/s-uid-" + uid + ".htm";
+}
+
+async function openPop(uid, fallbackName){
+  if (!uid) return;
+  let dd = homeCache.get(uid);
+  if (!dd){
+    pop.innerHTML = XBTN
+      + '<div style="padding:6px 0;color:#6b7280">正在读取资料…</div>';
+    msk.style.display = "block";
+    pop.style.display = "block";
+    $("popX").onclick = closePop;
+    try{
+      const d = await getJSON($("host").value + "/mag/user/v3/user/userHomev3?user_id=" + uid);
+      dd = (d && d.data) || {};
+      homeCache.set(uid, dd);
+      avatarCache.set(uid, dd.head || "");
+      paint(uid);
+    }catch(e){
+      pop.innerHTML = XBTN
+        + '<div style="padding:6px 0;color:#991b1b">读取失败：' + esc(String(e && e.message || e)) + '</div>';
+      $("popX").onclick = closePop;
+      return;
+    }
+  }
+  const nm   = dd.name || fallbackName || ("用户 " + uid);
+  const url  = homeUrl(uid);
+  const grp  = (dd.group_name || "").trim();
+  const sign = (dd.sign || "").trim();
+  // 锁主页 和 锁动态 是两回事, 各读各的字段, 分开显示
+  //   锁主页 = userHomev3.privacy == 1  (主页仅自己可见; 此时 getUserInfo 也拿不到注册天数)
+  //   锁动态 = role_des 里带"十天"      (仅展示最近十天动态)
+  const lockHome = String(dd.privacy) === "1";
+  const lockFeed = /十天/.test(dd.role_des || "");
+
+  pop.innerHTML = XBTN
+    + '<div style="display:flex;gap:12px;align-items:center">'
+      // 资料框要清楚的头像: 优先 OSS 原图, 没有就用 ucenter 的 middle
+      + '<img src="'+esc(avatarCache.get(uid) || avatarUrl(uid, "middle"))+'">'
+      + '<div style="min-width:0">'
+        + '<a class="nm2" href="'+esc(url)+'" target="_blank" rel="noreferrer">'+esc(nm)+'</a>'
+        + '<div class="rd">UID '+esc(uid)+'</div></div></div>'
+    + '<div class="st">'
+      + '<div><b>'+dash(dd.fans_count)+'</b>粉丝</div>'
+      + '<div><b>'+dash(dd.follow_count)+'</b>关注</div>'
+      + '<div><b id="popReg">…</b>注册</div>'
+    + '</div>'
+    + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
+    + (sign ? '<div class="sg"><i>个性签名</i>'+esc(sign.slice(0,60))+'</div>' : "")
+    + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
+    + (lockFeed ? '<div class="lm2">锁动态：仅展示最近十天的动态</div>' : "")
+    + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>';
+  msk.style.display = "block";
+  pop.style.display = "block";
+  $("popX").onclick = closePop;
+
+  // 注册天数只有 getUserInfo 给, 懒加载; 卡还开着就回填, 已关掉就丢掉
+  loadInfo(uid).then(inf => {
+    const el = $("popReg");
+    if (!el) return;
+    el.textContent = inf["注册时间"] ? inf["注册时间"] : (lockHome ? "主页已锁" : "-");
+  });
+}
+
+// 点用户名开资料卡(手机没有 hover, 原来的 mouseover 在手机上根本触发不了)
+document.addEventListener("click", (e) => {
+  const box = e.target.closest(".usr");
+  if (box){
+    openPop(String(box.dataset.uid || ""), box.textContent.trim());
+    return;
+  }
+  if (e.target.closest("#pop")) return;      // 卡内点链接别关掉
+  if (pop.style.display === "block") closePop();
+});
+msk.onclick = closePop;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
+
+// ---------------------------------------------------------------- 交互
+// 手动点"采集"= 完整回溯 24 小时。别写 onclick = collect:
+// 那样第一个参数是 MouseEvent, 正好是 truthy 能跑, 但纯属撞运气
+$("btn").onclick = () => collect(true);
+// 缩略图 -> 灯箱看大图。一个帖子有多张图时收集整组, 可以左右翻
+$("rows").onclick = (e) => {
+  const t = e.target.closest(".thumb");
+  if (!t) return;
+  const big = t.getAttribute("data-big") || t.src;
+  if (!big) return;
+  const box  = t.closest(".thumbs");
+  const pics = box ? [...box.querySelectorAll(".thumb")] : [t];
+  const list = pics.map(x => x.getAttribute("data-big") || x.src).filter(Boolean);
+  openLb(list.length ? list : [big], Math.max(0, pics.indexOf(t)));
+};
+let lbList = [], lbIdx = 0;
+function openLb(list, idx){
+  lbList = list; lbIdx = idx;
+  showLb();
+  $("lb").classList.add("on");
+}
+function showLb(){
+  const n = lbList.length;
+  $("lbImg").style.visibility = "";      // 清掉上一张加载失败留下的隐藏
+  $("lbImg").src = lbList[lbIdx] || "";
+  $("lbCount").textContent = (lbIdx + 1) + " / " + n;
+  $("lbCount").style.display = n > 1 ? "" : "none";
+  $("lbPrev").hidden = $("lbNext").hidden = n < 2;   // 单图不给箭头
+}
+function lbStep(d){
+  if (lbList.length < 2) return;
+  lbIdx = (lbIdx + d + lbList.length) % lbList.length;   // 首尾循环
+  showLb();
+}
+$("lbPrev").onclick = () => lbStep(-1);
+$("lbNext").onclick = () => lbStep(1);
+const lbOff = () => $("lb").classList.remove("on");
+// 点箭头/计数不算"点背景", 只有点空处或叉号才关
+$("lb").onclick = (e) => { if (e.target === $("lb") || e.target.closest("#lbClose")) lbOff(); };
+$("lbClose").onclick = lbOff;
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") lbOff();
+  if (!$("lb").classList.contains("on")) return;
+  if (e.key === "ArrowLeft")  lbStep(-1);
+  if (e.key === "ArrowRight") lbStep(1);
+});
+// 换端 = 换 cat_id, 旧端的数据含义不同, 清掉头像缓存并立刻重采
+$("host").onchange = () => {
+  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); page = 1;
+  // collect 忙的时候会直接 return, 不说一声的话看着像"切了端没反应"。
+  // 其实下一轮 15 秒快刷会用新的 host, 数据照样会来
+  if (busy) $("state").textContent = "正在采上一轮，切端将在下一轮生效";
+  collect(true);
+};
+$("pager").onclick = (e) => {
+  const b = e.target.closest(".pg");
+  if (!b) return;
+  const from = page;
+  page = parseInt(b.dataset.p, 10);
+  renderRows();
+  autoLabel();               // 按钮要跟着变(非第 1 页显示"暂停")
+  window.scrollTo({top: $("rows").closest(".panel").offsetTop - 20, behavior:"smooth"});
+  // 从别的页回到第 1 页: 立刻补一轮新帖, 不用干等倒计时走完
+  if (page === 1 && from !== 1 && autoMs > 0 && !busy) refresh();
+};
+// 按钮上带倒计时, 否则不知道下一轮什么时候来。采集中 autoLeft 会重置, 文案跟着变
+function autoLabel(){
+  if (autoMs === 0){ $("auto").textContent = "自动:关"; return; }
+  $("auto").textContent = "自动:" + (autoMs/1000) + "s"
+    + (canAuto() ? " (" + autoLeft + ")" : " · 暂停");
+}
+$("auto").onclick = () => {
+  const i = AUTO_STEPS.indexOf(autoMs);
+  autoMs = AUTO_STEPS[(i + 1) % AUTO_STEPS.length];
+  autoLeft = autoMs / 1000;
+  autoLabel();
+};
+
+$("btnExport").onclick = () => {
+  const blob = new Blob([JSON.stringify(ALL)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "kanong-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+$("btnImport").onclick = () => $("fileIn").click();
+$("fileIn").onchange = async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try{
+    const arr = JSON.parse(await f.text());
+    if (!Array.isArray(arr)) throw new Error("格式不对");
+    const inc = arr.filter(it => it && it.id != null).map(norm);
+    if (dbOk) await dbPut(inc);
+    const m = new Map(ALL.map(p => [p.id, p]));
+    for (const it of inc) m.set(it.id, it);
+    ALL = [...m.values()].sort((a,b) => b.publish_time - a.publish_time);
+    render();
+    $("state").textContent = "已导入 " + arr.length + " 条 · 库内 " + ALL.length;
+  }catch(err){
+    alert("导入失败：" + err.message);
+  }
+  e.target.value = "";
+};
+$("btnWipe").onclick = async () => {
+  if (!confirm("清空本地库？库内 " + ALL.length + " 条数据会被删除，建议先导出备份。")) return;
+  if (dbOk) await dbClear();
+  ALL = []; VIEW = []; page = 1;
+  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear();
+  render();
+  $("state").textContent = "已清空";
+};
+
+setInterval(() => {
+  if (autoMs === 0) return;
+  if (!canAuto()) return;              // 不在第 1 页: 不计时也不刷, 回到第 1 页会立刻补
+  if (busy){
+    // 补全 24 小时要走十几页几十秒, 这期间定时器抢不到 busy。
+    // 只登记"该刷新了", 让补全在翻页间隙插空刷, 首页新帖不会僵住。
+    if (!pendingFresh && Date.now() - lastFreshAt >= autoMs) pendingFresh = true;
+    return;
+  }
+  autoLeft--;
+  if (autoLeft > 0){ autoLabel(); return; }
+  refresh();                 // 快刷前几页就行, 别每轮都翻 24 小时
+  autoLabel();
+}, 1000);
+
+// 手机切到后台再回来: 浏览器会把定时器压到几乎不跑(甚至冻住),
+// 光靠 setInterval 切回来还得干等一轮。可见时立刻补采一次。
+document.addEventListener("visibilitychange", () => {
+  // 同样只在第 1 页才补采; 停在别的页说明在看旧帖, 回来再说
+  if (!document.hidden && !busy && autoMs > 0 && canAuto()){ refresh(); autoLabel(); }
+});
+
+// ---------------------------------------------------------------- 启动
+(async function boot(){
+  try{
+    await dbOpen();
+    ALL = await dbAll();
+    ALL = ALL.map(norm);
+    ALL.sort((a,b) => b.publish_time - a.publish_time);
+  }catch(e){
+    dbOk = false;
+    $("dbWarn").style.display = "block";
+    $("state").textContent = "本地存储不可用，仅本次有效";
+  }
+  if (ALL.length){
+    $("state").textContent = "已载入本地库 " + ALL.length.toLocaleString() + " 帖";
+    // 库里有货就把整条说明收起(原来只藏 firstTip, 但 note 有蓝底和 padding,
+    // 内容空了会剩一个空框)
+    const tip = $("topNote");
+    if (tip) tip.style.display = "none";
+    render();
+  }else{
+    render();
+    $("state").textContent = "本地库是空的，正在刷新新帖…";
+  }
+  autoLabel();               // 默认开着自动, 按钮上先把倒计时显示出来
+
+  // 分两步, 必须串行(并行会被 busy 拦掉一个):
+  // 1) 快刷第 1~3 页, 几秒内就有内容看
+  // 2) 接着从第 4 页往后补全 24 小时; 期间若到了刷新点, 会插空回来刷新帖
+  setTimeout(async () => {
+    await collect(false);
+    collect(true);
+  }, 200);
+})();
+</script>
+</body>
+</html>
