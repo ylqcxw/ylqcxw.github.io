@@ -129,6 +129,14 @@
   .pg:hover:not(:disabled):not(.on){background:#f3f4f6}
   .pg.on{background:var(--blue);border-color:var(--blue);color:#fff}
   .pg:disabled{opacity:.4;cursor:not-allowed}
+  /* 帖子多的时候有八九十页, 铺按钮点不完 —— 改成"翻页 + 直接输页码" */
+  .pgn{width:58px;height:30px;border:1px solid var(--line);border-radius:7px;
+    text-align:center;font-size:13px;font-weight:600;font-family:inherit;
+    color:var(--txt);background:#fff;padding:0 4px}
+  .pgt{color:var(--sub);font-size:12px}
+  .pggo{height:30px;padding:0 12px;border:0;background:var(--blue);color:#fff;
+    border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+  .pgc{color:#6b7280;font-size:12px}
 
   .av{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#eef0f3;
     vertical-align:middle;margin-right:7px;flex:0 0 auto}
@@ -183,9 +191,12 @@
   #pop .kv{display:flex;justify-content:space-between;align-items:center;
     margin-top:9px;font-size:12px;color:var(--sub)}
   #pop .kv b{color:#6d28d9;font-size:12.5px}
-  #pop .go{display:block;margin-top:11px;text-align:center;padding:8px 0;
-    background:var(--blue);color:#fff;border-radius:9px;text-decoration:none;
-    font-weight:600;font-size:13px}
+  /* 资料框: 换另一端去查(有人锁了主页, 换端往往能看到) */
+  #pop .src{margin-top:9px;font-size:11.5px;color:var(--sub)}
+  #pop .sw{display:block;width:100%;margin-top:9px;padding:7px 0;
+    border:1px solid var(--line);background:#fff;color:var(--blue);
+    border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+  #pop .sw:hover{background:#eff6ff}
   #pop .x{position:absolute;top:9px;right:10px;width:28px;height:28px;
     display:flex;align-items:center;justify-content:center;padding:0;
     border:0;background:#f3f4f6;color:#6b7280;border-radius:50%;cursor:pointer}
@@ -820,13 +831,16 @@ function renderRows(){
 
   slice.forEach(p => loadAvatar(String(p.user_id)));
 
-  let html = "";
-  const show = Math.min(total, 12);
-  for (let i = 1; i <= show; i++)
-    html += '<button class="pg'+(i===page?" on":"")+'" data-p="'+i+'">'+i+'</button>';
-  html += '<span style="color:#6b7280;font-size:12px;margin-left:6px">共 '
-        + VIEW.length.toLocaleString() + ' 帖 / ' + total + ' 页</span>';
-  $("pager").innerHTML = html;
+  // 一天一千多条 = 八十多页, 铺一排按钮既点不完也放不下。
+  // 改成 上一页 / 页码输入框 / 下一页 / 跳转, 想看第几页直接输。
+  const prev = Math.max(1, page - 1), next = Math.min(total, page + 1);
+  $("pager").innerHTML =
+      '<button class="pg" data-p="'+prev+'"'+(page===1?" disabled":"")+' aria-label="上一页">‹</button>'
+    + '<input class="pgn" id="pgNum" type="number" inputmode="numeric" min="1" max="'+total+'" value="'+page+'">'
+    + '<span class="pgt">/ '+total+' 页</span>'
+    + '<button class="pg" data-p="'+next+'"'+(page===total?" disabled":"")+' aria-label="下一页">›</button>'
+    + '<button class="pggo" id="pgGo">跳转</button>'
+    + '<span class="pgc">共 '+VIEW.length.toLocaleString()+' 帖</span>';
   // 自动刷新只在第 1 页跑, 这句告诉用户为什么翻页后新帖不动了
   $("pgHint").textContent = (autoMs === 0 || page === 1) ? "" : "已暂停自动刷新（只看第 1 页时刷新），回到第 1 页会立刻刷新";
 }
@@ -910,12 +924,15 @@ const infoCache = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
 
 // getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
 // 注意: 主页被锁(privacy=1)时这里全是空, 拿不到注册天数 —— 属正常。
-async function loadInfo(uid){
+async function loadInfo(uid, host){
   if (!uid) return {};
-  if (infoCache.has(uid)) return infoCache.get(uid);
+  const h = host || $("host").value;
+  // 缓存要带 host: 同一个人在两端返回的注册时间可能不同
+  const key = h + "|" + uid;
+  if (infoCache.has(key)) return infoCache.get(key);
   const out = {};
   try{
-    const d = await getJSON($("host").value + "/mag/user/v3/user/getUserInfo?user_id=" + uid);
+    const d = await getJSON(h + "/mag/user/v3/user/getUserInfo?user_id=" + uid);
     for (const blk of (d.data || [])){
       if (blk.type !== "info") continue;
       for (const it of (blk.data || [])){
@@ -923,7 +940,7 @@ async function loadInfo(uid){
       }
     }
   }catch(e){}
-  infoCache.set(uid, out);
+  infoCache.set(key, out);
   return out;
 }
 
@@ -933,25 +950,38 @@ function homeUrl(uid){
   return "https://www.51kanong.com/s-uid-" + uid + ".htm";
 }
 
-async function openPop(uid, fallbackName){
+async function openPop(uid, fallbackName, forceHost){
   if (!uid) return;
-  let dd = homeCache.get(uid);
+  // forceHost = 用户点了"换另一端查", 此时不能用当前端的缓存
+  const host = forceHost || $("host").value;
+  const opts = [...$("host").options];
+  const other = opts.find(o => o.value !== host) || opts[0];
+  // 切端按钮和"资料来源"两处在出错时也要显示, 抽出来复用
+  const tail = () => '<div class="src">资料来源：'
+    + esc((opts.find(o => o.value === host) || opts[0]).textContent)
+    + '</div><button class="sw" id="popSw">换到「' + esc(other.textContent) + '」查资料</button>';
+  const onSw = () => { $("popSw").onclick = () => openPop(uid, fallbackName, other.value); };
+
+  let dd = (forceHost && forceHost !== $("host").value) ? null : homeCache.get(uid);
   if (!dd){
     pop.innerHTML = XBTN
-      + '<div style="padding:6px 0;color:#6b7280">正在读取资料…</div>';
+      + '<div style="padding:6px 0;color:#6b7280">正在读取资料…</div>' + tail();
     msk.style.display = "block";
     pop.style.display = "block";
     $("popX").onclick = closePop;
+    onSw();
     try{
-      const d = await getJSON($("host").value + "/mag/user/v3/user/userHomev3?user_id=" + uid);
+      const d = await getJSON(host + "/mag/user/v3/user/userHomev3?user_id=" + uid);
       dd = (d && d.data) || {};
-      homeCache.set(uid, dd);
+      if (!forceHost || forceHost === $("host").value) homeCache.set(uid, dd);
       avatarCache.set(uid, dd.head || "");
       paint(uid);
     }catch(e){
       pop.innerHTML = XBTN
-        + '<div style="padding:6px 0;color:#991b1b">读取失败：' + esc(String(e && e.message || e)) + '</div>';
+        + '<div style="padding:6px 0;color:#991b1b">读取失败：' + esc(String(e && e.message || e)) + '</div>'
+        + tail();
       $("popX").onclick = closePop;
+      onSw();
       return;
     }
   }
@@ -979,15 +1009,19 @@ async function openPop(uid, fallbackName){
     + '</div>'
     + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
     + (sign ? '<div class="sg"><i>个性签名</i>'+esc(sign.slice(0,60))+'</div>' : "")
-    + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
+    + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见")
+        + '，可换另一端试试</div>' : "")
     + (lockFeed ? '<div class="lm2">锁动态：仅展示最近十天的动态</div>' : "")
+    + tail()
     + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>';
   msk.style.display = "block";
   pop.style.display = "block";
   $("popX").onclick = closePop;
+  onSw();
 
-  // 注册天数只有 getUserInfo 给, 懒加载; 卡还开着就回填, 已关掉就丢掉
-  loadInfo(uid).then(inf => {
+  // 注册天数只有 getUserInfo 给, 懒加载; 卡还开着就回填, 已关掉就丢掉。
+  // 要跟着 host 走 —— 换端查的时候得问那端的接口
+  loadInfo(uid, host).then(inf => {
     const el = $("popReg");
     if (!el) return;
     el.textContent = inf["注册时间"] ? inf["注册时间"] : (lockHome ? "主页已锁" : "-");
@@ -1055,22 +1089,36 @@ document.addEventListener("keydown", (e) => {
 });
 // 换端 = 换 cat_id, 旧端的数据含义不同, 清掉头像缓存并立刻重采
 $("host").onchange = () => {
+  saveHost();               // 记住选择, 下次打开还是这一端
   avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); page = 1;
   // collect 忙的时候会直接 return, 不说一声的话看着像"切了端没反应"。
   // 其实下一轮 15 秒快刷会用新的 host, 数据照样会来
   if (busy) $("state").textContent = "正在采上一轮，切端将在下一轮生效";
   collect(true);
 };
-$("pager").onclick = (e) => {
-  const b = e.target.closest(".pg");
-  if (!b) return;
+// 跳页。三个入口共用: 点 ‹ › / 页码框回车 / 点"跳转"
+function gotoPage(n){
+  const total = Math.max(Math.ceil(VIEW.length / PAGE_SIZE), 1);
+  n = parseInt(n, 10);
+  if (!n || n < 1) n = 1;
+  if (n > total) n = total;
   const from = page;
-  page = parseInt(b.dataset.p, 10);
+  page = n;
   renderRows();
   autoLabel();               // 按钮要跟着变(非第 1 页显示"暂停")
   window.scrollTo({top: $("rows").closest(".panel").offsetTop - 20, behavior:"smooth"});
   // 从别的页回到第 1 页: 立刻补一轮新帖, 不用干等倒计时走完
   if (page === 1 && from !== 1 && autoMs > 0 && !busy) refresh();
+}
+// 事件绑在 #pager 容器上: 页码框每次重绘都是新元素, 直接绑它会被冲掉
+$("pager").onclick = (e) => {
+  if (e.target.closest("#pgGo")){ gotoPage($("pgNum").value); return; }
+  const b = e.target.closest(".pg");
+  if (!b || b.disabled) return;
+  gotoPage(b.dataset.p);
+};
+$("pager").onkeydown = (e) => {
+  if (e.key === "Enter" && e.target.id === "pgNum") gotoPage(e.target.value);
 };
 // 按钮上带倒计时, 否则不知道下一轮什么时候来。采集中 autoLeft 会重置, 文案跟着变
 function autoLabel(){
@@ -1144,7 +1192,19 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---------------------------------------------------------------- 启动
+// 记住上次选的端 —— 手机上每次进来都重选太烦。
+// localStorage 可能被禁用(隐私模式), 两个函数都吞掉异常, 取不到就当没存过。
+const LS_HOST = "kanong.host";
+function saveHost(){ try{ localStorage.setItem(LS_HOST, $("host").value); }catch(e){} }
+function restoreHost(){
+  try{
+    const v = localStorage.getItem(LS_HOST);
+    if (v && [...$("host").options].some(o => o.value === v)) $("host").value = v;
+  }catch(e){}
+}
+
 (async function boot(){
+  restoreHost();             // 必须在采集之前, 否则首轮会用错的端
   try{
     await dbOpen();
     ALL = await dbAll();
