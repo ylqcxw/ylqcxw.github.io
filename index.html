@@ -210,11 +210,11 @@
   #pop .lm{margin-top:9px;font-size:12px;color:#92400e;background:#fffbeb;
     border:1px solid #fde68a;border-radius:8px;padding:6px 9px}
   /* 锁主页(琥珀) 和 锁动态(石板灰) 是两码事, 用不同颜色区分 */
-  #pop .lm2{margin-top:7px;font-size:12px;color:#334155;background:#f1f5f9;
-    border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
   #pop .kv{display:flex;justify-content:space-between;align-items:center;
     margin-top:9px;font-size:12px;color:var(--sub)}
   #pop .kv b{color:#6d28d9;font-size:12.5px}
+  /* 动态/帖子的权限说明(仅粉丝可见 / 仅自己可见): 琥珀色, 跟上面"锁主页"一个色系 */
+  #pop .kv b.no{color:#b45309;font-weight:400;font-size:12px}
   /* 资料框: 换另一端去查(有人锁了主页, 换端往往能看到) */
   /* 左: 资料来源   右: 换端(灰色小字, 不抢蓝色"打开主页"的视觉) */
   #pop .tail{display:flex;align-items:baseline;justify-content:space-between;
@@ -377,7 +377,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.2</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.3</span><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
   <div class="cred">本网站由 <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
@@ -999,7 +999,14 @@ const PRIVACY_HTML =
 // 页脚显示的 v1.0.2 是写死在 HTML 里的, 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.2 · 小改动进最后一位，较大的功能或界面调整进中间位</p>'
++ '<p class="dim">当前 v1.0.3 · 小改动进最后一位，较大的功能或界面调整进中间位</p>'
+
++ '<h5>v1.0.3 · 2026-10-07</h5>'
++ '<ul><li>资料卡里能看到主页各板块的可见性：动态 / 帖子分别显示条数，'
++ '被设了权限的显示「仅粉丝可见」「仅自己可见」（琥珀色）。</li>'
++ '<li>这两个板块能单独设权限，所以不再靠 <code>role_des</code> 猜「锁动态」——'
++ '有人主页没锁、动态却只对粉丝可见，以前看不出来。</li>'
++ '<li>锁主页的人显示「主页已锁」，不再显示成「无」（会让人以为他没发过东西）。</li></ul>'
 
 + '<h5>v1.0.2 · 2026-10-06</h5>'
 + '<ul><li>资料卡底部改成一行：左下角「资料来源」，右下角切换另一端查资料（灰色小字）。</li>'
@@ -1038,7 +1045,51 @@ function showDoc(html){
 $("btnPrivacy").onclick   = () => showDoc(PRIVACY_HTML);
 $("btnChangelog").onclick = () => showDoc(CHANGELOG_HTML);
 
-const infoCache = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
+const infoCache  = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
+const boardCache = new Map();   // host|uid -> {act:{n,locked,msg}, thr:{...}}
+
+// 个人主页下面挂了几个板块(荣誉/动态/帖子/视频), 各自能单独设权限,
+// 所以"主页能不能看"不是一整块的事。逐个板块问一遍才准 —— 光看 userHomev3
+// 的 privacy / role_des 会漏掉"privacy=0 但动态仅粉丝可见"这种。
+// 实测:
+//   公开       -> is_privacy=-1, list 有内容
+//   有权限限制 -> is_privacy=1, list 空, msg="用户设置了查看权限，动态仅粉丝可见"
+//                                            / "…帖子仅自己可见"
+//   锁主页     -> msg 为 null, list 空(上面另有"锁主页"提示, 这里显示"无")
+// 不用管视频板块: 它对谁都要登录(getVideoPage 不带 p/step 直接"请先登录")。
+// fen 端这两个接口返回空 list 且没有 is_privacy, 拿不到就显示"—", 不是报错。
+async function loadBoards(uid, host){
+  const key = host + "|" + uid;
+  if (boardCache.has(key)) return boardCache.get(key);
+  const one = async (path) => {
+    try{
+      const d = await getJSON(host + path);
+      return { n: ((d && d.list) || []).length,
+               locked: String(d && d.is_privacy) === "1",
+               msg: String((d && d.msg) || "") };
+    }catch(e){ return null; }        // 单个挂了不影响另一行
+  };
+  const [act, thr] = await Promise.all([
+    one("/mag/user/v2/User/userActivityPage?user_id=" + uid + "&p=1&step=20"),
+    one("/mag/user/v2/user/userForumOrShowPage?user_id=" + uid + "&p=1&step=20&config_id=3"),
+  ]);
+  const out = { act, thr };
+  boardCache.set(key, out);
+  return out;
+}
+
+// 板块状态 -> 显示文案。权限说明去掉接口那句"用户设置了查看权限，"和开头的板块名,
+// 剩下"仅粉丝可见"/"仅自己可见"才是人要看的部分。
+// lockHome 时接口只回空 list、不给 msg, 显示"无"会让人以为他没发过东西, 说"主页已锁"才对。
+function boardText(v, lockHome){
+  if (!v) return { t: "—", no: false };
+  if (v.locked || v.msg){
+    const t = v.msg.replace(/^用户设置了查看权限，/, "").replace(/^(动态|帖子)/, "").trim();
+    return { t: t || (lockHome ? "主页已锁" : "不可见"), no: true };
+  }
+  if (v.n > 0) return { t: (v.n >= 20 ? "20+" : v.n) + " 条", no: false };
+  return { t: lockHome ? "主页已锁" : "无", no: lockHome };
+}
 
 // getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
 // 注意: 主页被锁(privacy=1)时这里全是空, 拿不到注册天数 —— 属正常。
@@ -1108,11 +1159,9 @@ async function openPop(uid, fallbackName, forceHost){
   const url  = homeUrl(uid);
   const grp  = (dd.group_name || "").trim();
   const sign = (dd.sign || "").trim();
-  // 锁主页 和 锁动态 是两回事, 各读各的字段, 分开显示
-  //   锁主页 = userHomev3.privacy == 1  (主页仅自己可见; 此时 getUserInfo 也拿不到注册天数)
-  //   锁动态 = role_des 里带"十天"      (仅展示最近十天动态)
+  // 锁主页 = userHomev3.privacy == 1(主页仅自己可见; 此时 getUserInfo 也拿不到注册天数)。
+  // "最近十天/一个月"这种时间范围限制由下面动态/帖子两行具体体现, 不再单独猜一行。
   const lockHome = String(dd.privacy) === "1";
-  const lockFeed = /十天/.test(dd.role_des || "");
 
   pop.innerHTML = XBTN
     + '<div style="display:flex;gap:12px;align-items:center">'
@@ -1129,7 +1178,8 @@ async function openPop(uid, fallbackName, forceHost){
     + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
     + (sign ? '<div class="kv sg"><span>个性签名</span><b>'+esc(sign.slice(0,60))+'</b></div>' : "")
     + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
-    + (lockFeed ? '<div class="lm2">锁动态：仅展示最近十天的动态</div>' : "")
+    + '<div class="kv"><span>动态</span><b id="popAct">…</b></div>'
+    + '<div class="kv"><span>帖子</span><b id="popThr">…</b></div>'
     + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>'
     + tail();
   msk.style.display = "block";
@@ -1143,6 +1193,17 @@ async function openPop(uid, fallbackName, forceHost){
     const el = $("popReg");
     if (!el) return;
     el.textContent = inf["注册时间"] ? inf["注册时间"] : (lockHome ? "主页已锁" : "-");
+  });
+
+  // 动态/帖子两条要各打一次接口, 懒加载; 同一次开卡里两个请求并发
+  loadBoards(uid, host).then(b => {
+    for (const [id, v] of [["popAct", b.act], ["popThr", b.thr]]){
+      const el = $(id);
+      if (!el) return;
+      const r = boardText(v, lockHome);
+      el.textContent = r.t;
+      if (r.no) el.className = "no";
+    }
   });
 }
 
