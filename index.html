@@ -54,6 +54,22 @@
     padding:16px 18px;box-shadow:var(--shadow);margin-bottom:16px}
   .panel h3{font-size:14px;font-weight:700;margin-bottom:2px}
   .panel .hint{color:var(--sub);font-size:12px;margin-bottom:12px}
+  /* 页脚: 隐私政策入口, 灰小字, 不抢主内容 */
+  .foot{text-align:center;margin:16px auto 24px}
+  .foot .lk{background:none;border:0;padding:4px 6px;font-family:inherit;
+    font-size:11.5px;color:#9ca3af;cursor:pointer;
+    text-decoration:underline;text-underline-offset:2px}
+  .foot .lk:hover{color:var(--blue)}
+  /* 隐私弹窗比资料卡宽, 内容还长: 给它自己的宽度 + 内部滚动 */
+  #pop.wide{width:min(520px,calc(100vw - 36px))}
+  #pop .pri{max-height:min(64vh,520px);overflow:auto;line-height:1.72;
+    font-size:12.5px;color:#374151}
+  #pop .pri h4{margin:0 0 10px;font-size:14px;color:var(--txt)}
+  #pop .pri p{margin:0 0 9px}
+  #pop .pri h5{margin:12px 0 5px;font-size:12.5px;color:var(--txt)}
+  #pop .pri ul{margin:0 0 9px;padding-left:18px}
+  #pop .pri li{margin:0 0 4px}
+  #pop .pri .dim{color:var(--sub);font-size:11.5px;margin-top:12px}
   .wtag{font-size:11px;font-weight:600;color:var(--blue);background:#eff6ff;
     border:1px solid #bfdbfe;border-radius:10px;padding:1px 8px;
     margin-left:6px;vertical-align:2px;white-space:nowrap}
@@ -179,10 +195,11 @@
   #pop .st{display:flex;gap:16px;margin-top:11px;padding-top:11px;
     border-top:1px solid var(--line);font-size:12px;color:var(--sub)}
   #pop .st b{display:block;font-size:15px;color:var(--txt);font-variant-numeric:tabular-nums}
-  #pop .sg{margin-top:9px;font-size:12px;color:#6b7280;line-height:1.55;word-break:break-word}
-  /* "个性签名"小标签: 不加的话一句签名光秃秃的, 看不出是签名还是别的什么 */
-  #pop .sg i{display:inline-block;font-style:normal;font-size:11px;color:#6b7280;
-    background:#f3f4f6;border-radius:5px;padding:1px 6px;margin-right:6px}
+  /* 个性签名: 跟"用户组"同一套 .kv 布局(左标签 / 右内容), 只是内容色改成正文灰 */
+  #pop .kv.sg{align-items:baseline;gap:12px}
+  #pop .kv.sg span{flex:none}
+  #pop .kv.sg b{flex:1;min-width:0;color:#374151;font-weight:400;
+    font-size:12px;line-height:1.55;text-align:right;word-break:break-word}
   #pop .lm{margin-top:9px;font-size:12px;color:#92400e;background:#fffbeb;
     border:1px solid #fde68a;border-radius:8px;padding:6px 9px}
   /* 锁主页(琥珀) 和 锁动态(石板灰) 是两码事, 用不同颜色区分 */
@@ -192,11 +209,17 @@
     margin-top:9px;font-size:12px;color:var(--sub)}
   #pop .kv b{color:#6d28d9;font-size:12.5px}
   /* 资料框: 换另一端去查(有人锁了主页, 换端往往能看到) */
-  #pop .src{margin-top:9px;font-size:11.5px;color:var(--sub)}
-  #pop .sw{display:block;width:100%;margin-top:9px;padding:7px 0;
-    border:1px solid var(--line);background:#fff;color:var(--blue);
-    border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
-  #pop .sw:hover{background:#eff6ff}
+  /* 左: 资料来源   右: 换端(灰色小字, 不抢蓝色"打开主页"的视觉) */
+  #pop .tail{display:flex;align-items:baseline;justify-content:space-between;
+    gap:10px;margin-top:12px}
+  #pop .src{font-size:11px;color:var(--sub)}
+  #pop .sw{margin:0;padding:0;border:0;background:none;font-family:inherit;
+    font-size:11px;color:#9ca3af;cursor:pointer;text-align:right;
+    text-decoration:underline;text-underline-offset:2px}
+  #pop .sw:hover{color:var(--blue)}
+  #pop .go{display:block;margin-top:11px;text-align:center;padding:8px 0;
+    background:var(--blue);color:#fff;border-radius:9px;text-decoration:none;
+    font-weight:600;font-size:13px}
   #pop .x{position:absolute;top:9px;right:10px;width:28px;height:28px;
     display:flex;align-items:center;justify-content:center;padding:0;
     border:0;background:#f3f4f6;color:#6b7280;border-radius:50%;cursor:pointer}
@@ -339,10 +362,6 @@
         <button class="ghost sm" id="btnWipe">清空本地库</button>
         <input type="file" id="fileIn" accept=".json" style="display:none">
       </div>
-      <div style="margin-top:12px">
-        <b>关于隐私：</b>本页不上传任何数据，也没有后端。帖子只存在你自己的浏览器里，
-        别人打开看到的是他自己的空库。采集请求由你的网络直接发往卡农服务器。
-      </div>
     </div>
   </details>
 
@@ -350,6 +369,7 @@
 
 <div id="msk"></div>
 <div id="pop"></div>
+<footer class="foot"><button class="lk" id="btnPrivacy">隐私政策</button></footer>
 <div class="lightbox" id="lb">
   <button class="lb-close" id="lbClose" aria-label="关闭">
     <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
@@ -456,7 +476,14 @@ function thumbUrl(u){
     return u.replace("x-oss-process=image/", "x-oss-process=image/resize,w_160/");
   return u;
 }
+// 窄屏(手机)判定: 跟 CSS 的 640px 断点保持一致; 有的手机 UA 带 Mobile 但宽度算桌面, 一并算手机
+function isPhone(){
+  try{ if (window.matchMedia("(max-width:640px)").matches) return true; }catch(e){}
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
 function postUrl(p){
+  // PC 端统一跳网页版 (www.51kanong.com/xyk-<tid>-1.htm), 手机端保持原来的地址不变
+  if (!isPhone() && p.id) return "https://www.51kanong.com/xyk-" + p.id + "-1.htm";
   // 优先用接口返回的 link: 两端各自的域名可能不同, 硬编码 my 域名在 fen 端采的帖子上会串
   const l = p.link && String(p.link).trim();
   if (l && /^https?:\/\//.test(l)) return l;
@@ -920,6 +947,50 @@ const dash = (v) => (v === null || v === undefined || v === "" ? "-" : v);
 
 function closePop(){ pop.style.display = "none"; msk.style.display = "none"; }
 
+// ---------------------------------------------------------------- 隐私政策
+// 没有后端、没有统计, 所以这份政策基本就是在讲"我们什么都没做"。
+// 措辞刻意写实: 第三方(GitHub Pages / 卡农 CDN)能看到什么也一并写明,
+// 含糊过去反而更可疑。更新时改 UPDATED 那行即可。
+const PRIVACY_HTML =
+  '<h4>隐私政策</h4>'
++ '<p>本页是一个纯前端工具，托管在 GitHub Pages 上，<b>没有后端、没有账号系统</b>。'
++ '它只是你浏览器里运行的一段静态网页，不存在"把你的数据发给我们"这件事。</p>'
+
++ '<h5>数据存在你自己的设备上</h5>'
++ '<ul><li>采集到的帖子存在浏览器的 IndexedDB 里；界面偏好（如数据来源的选择）存在 localStorage。</li>'
++ '<li>清掉浏览器数据就全部清除；换一台设备、换一个浏览器，看到的是各自独立的库，不会同步。</li>'
++ '<li>别人打开这个网址，看到的是他自己的空库，看不到你的数据。</li></ul>'
+
++ '<h5>网络请求</h5>'
++ '<ul><li>采集请求由<b>你的浏览器直接发往卡农服务器</b>，本页不中转、不代理、不留存响应副本。</li>'
++ '<li>头像和图片从卡农的图片服务直接加载，这会让对方看到你的 IP 与浏览器标识——这是访问任何图片都会发生的。</li>'
++ '<li>换另一端查资料时，只是额外向那端接口发一次请求，同样不经过我们。</li></ul>'
+
++ '<h5>我们不做什么</h5>'
++ '<ul><li>没有统计脚本、没有广告、没有埋点。我们不知道谁在用、用了多久、看了什么。</li>'
++ '<li>不要求手机号、邮箱或任何身份信息，也不设置 Cookie 用于追踪。</li>'
++ '<li>导出 JSON 是把本地库写成文件下载到你的设备；导入是读你选的文件进本地库，都不经过网络。</li></ul>'
+
++ '<h5>托管方能看到的</h5>'
++ '<ul><li>GitHub Pages 作为托管方，会按其自身政策记录常规访问日志（如 IP、User-Agent），这部分不由本页控制。</li></ul>'
+
++ '<h5>其他</h5>'
++ '<ul><li>本页仅对公开信息做时间与热度统计，不提供登录，不缓存他人个人信息。</li>'
++ '<li>若认为页面展示的内容涉及你的隐私，请通过原平台的投诉渠道处理，我们无法代为删除平台上的数据。</li>'
++ '<li>政策如有调整会更新在本页，继续使用即视为接受。</li></ul>'
+
++ '<p class="dim">本工具为非官方的第三方小工具，与卡农社区官方无关。'
++ '最近更新：2026-10-06</p>';
+
+function openPrivacy(){
+  pop.classList.add("wide");
+  pop.innerHTML = XBTN + '<div class="pri">' + PRIVACY_HTML + '</div>';
+  msk.style.display = "block";
+  pop.style.display = "block";
+  $("popX").onclick = closePop;
+}
+$("btnPrivacy").onclick = openPrivacy;
+
 const infoCache = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
 
 // getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
@@ -952,14 +1023,15 @@ function homeUrl(uid){
 
 async function openPop(uid, fallbackName, forceHost){
   if (!uid) return;
+  pop.classList.remove("wide");          // 隐私弹窗加的宽版样式要还原, 否则资料卡会跟着变宽
   // forceHost = 用户点了"换另一端查", 此时不能用当前端的缓存
   const host = forceHost || $("host").value;
   const opts = [...$("host").options];
   const other = opts.find(o => o.value !== host) || opts[0];
   // 切端按钮和"资料来源"两处在出错时也要显示, 抽出来复用
-  const tail = () => '<div class="src">资料来源：'
+  const tail = () => '<div class="tail"><span class="src">资料来源：'
     + esc((opts.find(o => o.value === host) || opts[0]).textContent)
-    + '</div><button class="sw" id="popSw">换到「' + esc(other.textContent) + '」查资料</button>';
+    + '</span><button class="sw" id="popSw">切换到「' + esc(other.textContent) + '」来源</button></div>';
   const onSw = () => { $("popSw").onclick = () => openPop(uid, fallbackName, other.value); };
 
   let dd = (forceHost && forceHost !== $("host").value) ? null : homeCache.get(uid);
@@ -1008,12 +1080,11 @@ async function openPop(uid, fallbackName, forceHost){
       + '<div><b id="popReg">…</b>注册</div>'
     + '</div>'
     + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
-    + (sign ? '<div class="sg"><i>个性签名</i>'+esc(sign.slice(0,60))+'</div>' : "")
-    + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见")
-        + '，可换另一端试试</div>' : "")
+    + (sign ? '<div class="kv sg"><span>个性签名</span><b>'+esc(sign.slice(0,60))+'</b></div>' : "")
+    + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
     + (lockFeed ? '<div class="lm2">锁动态：仅展示最近十天的动态</div>' : "")
-    + tail()
-    + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>';
+    + '<a class="go" href="'+esc(url)+'" target="_blank" rel="noreferrer">打开个人主页</a>'
+    + tail();
   msk.style.display = "block";
   pop.style.display = "block";
   $("popX").onclick = closePop;
@@ -1036,6 +1107,8 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (e.target.closest("#pop")) return;      // 卡内点链接别关掉
+  // 页脚"隐私政策": 它自己会开弹窗, 冒泡到这里再被下面的"点空白就关"关掉, 等于点了没反应
+  if (e.target.closest(".foot")) return;
   if (pop.style.display === "block") closePop();
 });
 msk.onclick = closePop;
