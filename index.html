@@ -84,6 +84,20 @@
      width/height/border-radius/object-fit 全部覆盖回来, 否则图全是 54px 小圆图 */
   #pop .fx img{width:auto;height:auto;max-width:100%;object-fit:contain;background:none;
     border-radius:8px;margin:9px 0;display:block;cursor:zoom-in}
+  /* 搜出来的用户: 头像 + 名字 + 签名, 整行可点(点开资料卡) */
+  #pop .sr{display:flex;align-items:center;gap:9px;padding:8px 6px;border-radius:8px;
+    cursor:pointer;border-bottom:1px dashed #eceff3}
+  #pop .sr:hover{background:#f6f8fa}
+  #pop .sr .srhd{width:32px;height:32px;border-radius:50%;object-fit:cover;
+    background:#eef0f3;flex:none}
+  #pop .sr .srbd{flex:1;min-width:0}
+  #pop .sr .srnm{font-size:13px;font-weight:600;color:var(--txt)}
+  #pop .sr .srsg{font-size:11.5px;color:var(--sub);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #pop .sr .sruid{font-size:11px;color:var(--sub);flex:none;font-variant-numeric:tabular-nums}
+  #pop .srhd.off,#pop .sr .srsg.off{opacity:.45}
+  /* 命中关键词标黄。只对自己 esc 过的文本做, 不用接口那个 user_title(里面是 HTML) */
+  #pop mark{background:#fef08a;color:inherit;border-radius:2px;padding:0 1px}
   #pop .fx.miss{color:var(--sub)}
   /* 表情: 正文和评论里都有 <img class="img-emoj">, 得跟文字同一行排(内联小图),
      不能像配图那样 display:block 占一整行, 也不能被头像规则套成 54px 圆图 */
@@ -151,6 +165,12 @@
   .hb .ct{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
 
   table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  /* 列宽: 标题列不写宽度, 吃剩下的空间。用户名要给足(常见 4~10 个汉字),
+     标题被截在 42 字左右, 再宽也是空着, 所以让给用户名。 */
+  .c-usr{width:250px}
+  .c-bd{width:88px}
+  .c-n1,.c-n2{width:60px}
+  .c-tm{width:80px}
   th{text-align:left;color:var(--sub);font-weight:600;font-size:12px;
     padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
   td{padding:9px 10px;border-bottom:1px solid #f1f2f4;vertical-align:top}
@@ -230,10 +250,19 @@
   .met i{font-style:normal;margin-right:3px}
   .met b{color:var(--txt);font-weight:600;font-variant-numeric:tabular-nums}
   .met .sep{margin:0 7px;color:#d1d5db}
-  /* 信息流里的「回复 N」: 做成按钮, 点了开评论弹窗 */
+  /* 信息流里的「回复 N」: 做成按钮, 点了开评论弹窗。
+     <button> 自带焦点环 —— 点完会留一圈蓝框, 看着像没点掉的高亮。去掉它,
+     悬停/聚焦统一用下划线反馈(键盘用户照样看得出焦点在哪)。 */
   .rc{margin:0;padding:0;border:0;background:none;font:inherit;color:var(--blue);
-    cursor:pointer;font-variant-numeric:tabular-nums}
-  .rc:hover{text-decoration:underline}
+    cursor:pointer;font-variant-numeric:tabular-nums;
+    -webkit-tap-highlight-color:transparent}
+  .rc:hover,.rc:focus,.rc:focus-visible{text-decoration:underline;outline:none}
+  /* 顶部搜用户 */
+  .qbox{display:flex;align-items:center;gap:6px}
+  .qbox input{border:1px solid var(--line);border-radius:8px;padding:6px 10px;
+    font-family:inherit;font-size:12.5px;width:148px;color:var(--txt);background:#fff}
+  .qbox input:focus{outline:none;border-color:var(--blue)}
+  .qbox input::-webkit-search-cancel-button{cursor:pointer}
 
   .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
     padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#1e40af;line-height:1.7}
@@ -271,6 +300,13 @@
     border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
   #pop .hid{margin-top:7px;font-size:12px;color:#334155;background:#f1f5f9;
     border:1px solid #cbd5e1;border-radius:8px;padding:6px 9px}
+  /* 封禁提示: 红框, 跟上面灰框(锁主页/板块不可见)区分 —— 那是"看不到", 这是"被处罚" */
+  #pop .ban{display:flex;gap:7px;align-items:flex-start;margin-top:9px;
+    font-size:12px;color:#991b1b;background:#fef2f2;
+    border:1px solid #fecaca;border-radius:8px;padding:7px 9px;line-height:1.5}
+  #pop .ban svg{flex:none;width:14px;height:14px;margin-top:2px}
+  #pop .ban .bt{font-weight:700}
+  #pop .ban .bd{color:#b91c1c;margin-top:2px}
   #pop .hid .hr{display:flex;justify-content:space-between;gap:10px}
   #pop .hid .hr + .hr{margin-top:3px;padding-top:3px;border-top:1px dashed #dbe2ea}
   #pop .hid .hr b{font-weight:600;color:#475569}
@@ -304,6 +340,13 @@
   .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0}
   .kv span:nth-child(odd){color:var(--sub)}
   .kv span:nth-child(even){color:var(--txt);font-variant-numeric:tabular-nums}
+  /* 中等屏(641~1000px): 总宽变窄了, 用户名列跟着收一点, 否则标题被挤得没地方。
+     跟下面的 640px 块互斥(小屏整张表变成卡片, 列宽本来就不生效)。 */
+  @media(min-width:641px) and (max-width:1000px){
+    .c-usr{width:186px}
+    .c-bd{width:80px}
+    .c-tm{width:74px}
+  }
   /* 小屏卡片布局。必须放在样式表最后面 —— .met{display:none} 写在前面,
      同优先级下"后写的赢", 早放会被它盖掉, 那行就永远不显示。 */
   @media(max-width:640px){
@@ -336,6 +379,9 @@
     .lb-nav.prev{left:6px}
     .lb-nav.next{right:6px}
     .lb-close{top:12px;right:12px;width:36px;height:36px}
+    /* 搜索框在小屏独占一行, 否则跟 select 挤在一起放不下 */
+    .qbox{flex:1 1 100%;order:9}
+    .qbox input{flex:1;width:auto;min-width:0}
   }
 </style>
 </head>
@@ -361,6 +407,10 @@
     <div class="meta"><span class="dot" id="dot"></span><span id="state">正在打开本地库…</span></div>
     <div class="spacer"></div>
     <div class="tag" id="tsTag">最近 24 小时</div>
+    <div class="qbox" id="qbox">
+      <input id="q" type="search" placeholder="搜用户名 / UID" autocomplete="off" maxlength="24">
+      <button id="qbtn" class="ghost sm">搜用户</button>
+    </div>
     <select id="host">
       <option value="https://my.kanong01.com" data-cat="7">卡农社区</option>
       <option value="https://fen.kanong01.com" data-cat="27">卡农APP</option>
@@ -409,8 +459,8 @@
     <div class="hint">点标题跳原站 · 悬停用户名看资料</div>
     <table>
       <colgroup>
-        <col style="width:172px"><col>
-        <col style="width:94px"><col style="width:60px"><col style="width:60px"><col style="width:86px">
+        <col class="c-usr"><col>
+        <col class="c-bd"><col class="c-n1"><col class="c-n2"><col class="c-tm">
       </colgroup>
       <thead><tr>
         <th>用户</th><th>标题</th><th>板块</th>
@@ -440,7 +490,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.3</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.4</span><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
   <div class="cred">本网站由 <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
@@ -1073,50 +1123,58 @@ const PRIVACY_HTML =
 // 页脚显示的 v1.0.2 是写死在 HTML 里的, 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.3 · 小改动进最后一位，较大的功能或界面调整进中间位</p>'
++ '<p class="dim">当前 v1.0.4 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.4 · 2026-10-07</h5>'
++ '<ul>'
++ '<li>新增<b>搜用户</b>：输入用户名按精确匹配检索，点击结果打开资料卡；输入 UID 直接打开资料卡。</li>'
++ '<li>资料卡新增<b>封禁状态提示</b>：接口 <code>group_name</code> 返回处罚说明时，'
++ '显示红色「该用户已被封禁」提示框，并附接口原文。</li>'
++ '</ul>'
 
 + '<h5>v1.0.3 · 2026-10-07</h5>'
-+ '<ul><li>主页板块只在<b>看不见</b>时才出现：动态 / 荣誉 / 帖子共用一个灰框，'
-+ '写明「仅粉丝可见」「仅自己可见」「已关闭」；看得到的不再占地方。</li>'
-+ '<li>锁主页和锁荣誉分开判：主页看 <code>userHomev3</code> 的 <code>privacy</code>，'
-+ '荣誉看 <code>getUserInfo</code> 的 <code>is_privacy</code> 和 <code>msg</code>。'
-+ '锁主页时荣誉也是空的，那是连带的，不算荣誉单独设了权限。</li>'
-+ '<li>锁主页也改成灰框（原来是琥珀色），和板块框统一。</li>'
-+ '<li>不显示条数 —— 没登录时接口固定只给 3 条（<code>step</code> 给多大都一样），'
-+ '写了是假的。</li>'
-+ '<li>这三个板块能单独设权限，所以不再靠 <code>role_des</code> 猜「锁动态」——'
-+ '有人主页没锁、动态却只对粉丝可见，以前看不出来。</li>'
-+ '<li>锁主页时只显示锁主页那一框，不再把三个板块重复列成「主页已锁」。</li>'
-+ '<li>标题写不下的都在正文里 —— 这样的帖子标题后面会出现「全文」按钮，'
-+ '点开读完整正文；配图点一下用灯箱看大图。</li>'
-+ '<li>信息流里的<b>「回复 N」整块都是按钮</b>（「回复」两个字也算）：点开一个只放回复的弹窗，'
-+ '进去才加载（列表页不发请求），滚到底自动翻页；回复里的用户名能点开资料卡，图片限宽 300px。</li></ul>'
++ '<ul>'
++ '<li>资料卡主页板块仅在不可见时展示：动态 / 荣誉 / 帖子统一为灰框，'
++ '标注「仅粉丝可见」「仅自己可见」「已关闭」。</li>'
++ '<li>锁主页与锁荣誉改为分别判定：主页依据 <code>userHomev3.privacy</code>，'
++ '荣誉依据 <code>getUserInfo.is_privacy</code> 与 <code>msg</code>。</li>'
++ '<li>锁主页提示改用灰框，与板块提示统一样式。</li>'
++ '<li>不再显示板块条数：未登录时接口固定返回 3 条，条数不具备参考意义。</li>'
++ '<li>不再依据 <code>role_des</code> 推断板块锁定状态，改由各板块接口独立判定。</li>'
++ '<li>新增<b>读全文</b>：正文长于标题的帖子显示「全文」按钮，弹出窗口展示完整正文，'
++ '配图支持灯箱查看与切换。</li>'
++ '<li>信息流与全文弹窗中的<b>「回复 N」改为按钮</b>：点击打开回复弹窗并按需加载，'
++ '滚动至底部自动翻页；回复中的用户名可打开资料卡。</li>'
++ '</ul>'
 
 + '<h5>v1.0.2 · 2026-10-06</h5>'
-+ '<ul><li>资料卡底部改成一行：左下角「资料来源」，右下角切换另一端查资料（灰色小字）。</li>'
-+ '<li>蓝色「打开个人主页」按钮移回资料卡上方，样式恢复为最初的样子'
-+ '（上一版误删了它的样式，变成了裸链接）。</li>'
-+ '<li>「个性签名」跟「用户组」统一排版：标签在最左，内容在最右，长签名自动换行。</li>'
-+ '<li><b>PC 端帖子标题改跳网页版</b> <code>www.51kanong.com/xyk-&lt;帖子ID&gt;-1.htm</code>；'
-+ '手机端保持原来的地址不变。</li>'
-+ '<li>页脚加「隐私政策」入口（弹窗说明：无后端、数据只存本地、请求直达卡农等）。</li>'
-+ '<li>去掉「本地库管理」里那段旧隐私说明。</li></ul>'
++ '<ul>'
++ '<li>资料卡底部改为单行：左侧显示资料来源，右侧提供切换另一端查询的入口。</li>'
++ '<li>「打开个人主页」按钮移回资料卡上方，并恢复原有样式。</li>'
++ '<li>「个性签名」与「用户组」统一排版：标签左对齐，内容右对齐，长签名自动换行。</li>'
++ '<li>PC 端帖子标题链接改为网页版地址 <code>www.51kanong.com/xyk-&lt;帖子ID&gt;-1.htm</code>，'
++ '移动端保持原地址。</li>'
++ '<li>页脚新增「隐私政策」入口。</li>'
++ '<li>移除「本地库管理」中的重复隐私说明。</li>'
++ '</ul>'
 
 + '<h5>v1.0.1 · 2026-10-06</h5>'
-+ '<ul><li>顶部选的数据来源会被记住，下次打开还是那一端。</li>'
-+ '<li>个人资料卡可以换另一端去查 —— 有人锁了主页，换一端往往就能看到；'
-+ '读取失败时也能换。</li>'
-+ '<li>分页器改成「‹ 页码框 / N 页 › 跳转」，支持直接输入页码'
-+ '（一天一千多条有八十多页，铺一排按钮点不完）。</li>'
-+ '<li>删除 CNAME：备案域名不再解析到 GitHub Pages。</li></ul>'
++ '<ul>'
++ '<li>所选数据来源持久化至 localStorage，下次打开自动恢复。</li>'
++ '<li>资料卡支持切换另一端查询；读取失败时同样可切换。</li>'
++ '<li>分页器改为「‹ 页码 / 总页数 ›」，支持直接输入页码跳转。</li>'
++ '<li>移除 CNAME：备案域名不再解析至 GitHub Pages。</li>'
++ '</ul>'
 
 + '<h5>v1.0.0 · 2026-10-06</h5>'
-+ '<ul><li>首个版本上线。</li>'
-+ '<li>浏览器直连采集，无需后端；打开就采，先出内容再补全 24 小时，之后自动刷新。</li>'
++ '<ul>'
++ '<li>首个版本上线。</li>'
++ '<li>浏览器直连采集，无需后端；打开即采集，先输出内容再补全 24 小时，随后自动刷新。</li>'
 + '<li>顶部 KPI、发帖密度柱状图、活跃用户 Top10。</li>'
-+ '<li>帖子列表（用户 / 标题 / 板块 / 阅读 / 回复 / 时间），点用户名看个人资料卡。</li>'
-+ '<li>数据来源可切「卡农社区」和「卡农APP」两端。</li>'
-+ '<li>本地库存最近 48 小时，支持导出 / 导入 JSON 备份。</li></ul>';
++ '<li>帖子列表（用户 / 标题 / 板块 / 阅读 / 回复 / 时间），点击用户名查看资料卡。</li>'
++ '<li>数据来源支持切换「卡农社区」与「卡农APP」两端。</li>'
++ '<li>本地库存最近 48 小时，支持导出 / 导入 JSON 备份。</li>'
++ '</ul>';
 
 // 页脚两篇文档共用一个宽版弹窗
 function showDoc(html){
@@ -1409,6 +1467,91 @@ function bindCmtScroll(){
   };
 }
 
+// ---------------------------------------------------------------- 搜用户
+// 按名字: /mag/user/v1/User/userSearch?name=&p=&step=  (两端都有, step 生效)
+//   返回里**没有 total_page / count**, 只有 list —— 翻页只能"翻到返回空为止"
+//   接口是模糊匹配(名字里含这个词就返回), 前端再按全等过滤, 只留名字完全一样的
+// 按 UID: 直接用资料卡那套 /mag/user/v3/user/userHomev3?user_id=, 一个人, 直接开卡
+const S_STEP = 20;
+const S_MAXPAGE = 5;        // 精准匹配最多往后翻这么几页去找(同名的人不一定在第 1 页)
+let sKey = "", sPage = 0, sBusy = false;
+const sCache = new Map();
+
+function isUid(s){ return /^\d{1,12}$/.test(String(s || "").trim()); }
+
+// 接口给的是模糊结果, 这里按名字全等过滤(忽略大小写和首尾空格)。
+// 别用接口那个 user_title —— 它是 HTML(<span class="active">xxx</span>), 直接渲染等于开个口子
+function exactOf(list, q){
+  const k = String(q || "").trim().toLowerCase();
+  if (!k) return [];
+  return (list || []).filter(u =>
+    String(u.user_name || u.name || "").trim().toLowerCase() === k);
+}
+
+async function fetchPage(host, q, p){
+  const key = host + "|" + q + "|" + p;
+  if (sCache.has(key)) return sCache.get(key);
+  const r = await getJSON(host + "/mag/user/v1/User/userSearch?name="
+            + encodeURIComponent(q) + "&p=" + p + "&step=" + S_STEP);
+  const list = r.list || [];
+  sCache.set(key, list);
+  return list;
+}
+
+function srRow(u){
+  const uid  = String(u.user_id || u.id || "");
+  const nm   = String(u.user_name || u.name || "").trim() || ("用户 " + uid);
+  const hd   = String(u.user_head || u.head || "");
+  const sign = String(u.sign || u.info || "").trim();
+  return '<div class="sr" data-uid="' + esc(uid) + '">'
+    + (/^https?:\/\//i.test(hd)
+        ? '<img class="srhd" loading="lazy" src="' + esc(hd) + '" alt="">'
+        : '<span class="srhd off"></span>')
+    + '<div class="srbd"><div class="srnm">' + esc(nm) + '</div>'
+    + (sign ? '<div class="srsg">' + esc(sign) + '</div>' : "")
+    + '</div><span class="sruid">' + esc(uid) + '</span></div>';
+}
+
+// 用户名唯一, 所以精准匹配要么 0 条要么 1 条: 翻到找到为止, 到底还没有就是没这个人。
+// 接口是模糊的(名字里含这个词就返回), 同名的人不一定排在第 1 页, 所以往后翻几页找。
+async function moreSearch(){
+  if (sBusy) return;
+  sBusy = true;
+  const host = $("host").value;
+  let hit = null, err = "";
+  try{
+    while (sPage < S_MAXPAGE){
+      const list = await fetchPage(host, sKey, sPage + 1);
+      sPage++;
+      const got = exactOf(list, sKey);
+      if (got.length){ hit = got[0]; break; }
+      if (list.length < S_STEP) break;      // 不满一页 = 到底了
+    }
+  }catch(e){ err = String(e && e.message || e); }
+  sBusy = false;
+  const box = $("srBox");
+  if (!box) return;                          // 弹窗已经关掉
+  if (err){ box.innerHTML = '<div class="nil">搜索失败：' + esc(err) + '</div>'; return; }
+  if (!hit){
+    box.innerHTML = '<div class="nil">没有叫「' + esc(sKey) + '」的用户</div>';
+    return;
+  }
+  box.innerHTML = srRow(hit);
+}
+
+function startSearch(){
+  const q = String($("q").value || "").trim();
+  if (!q) return;
+  // 纯数字当 UID: 一个人, 直接开资料卡, 不用先列一遍
+  if (isUid(q)){ openPop(q, "用户 " + q); return; }
+  sKey = q; sPage = 0;
+  showDoc('<h4>搜「' + esc(q) + '」</h4>'
+    + '<div class="cmb" id="srBox"><div class="nil">搜索中…</div></div>');
+  moreSearch();
+}
+$("qbtn").onclick = startSearch;
+$("q").onkeydown = (e) => { if (e.key === "Enter") startSearch(); };
+
 // getUserInfo 返回 data 是数组, 里面 type=info 那段才是 {name,value} 列表。
 // 顺便拿它判"荣誉"板块 —— 荣誉单独设权限时 is_privacy=1 且 msg 写明"仅自己可见/仅粉丝可见",
 // data 整个空掉。注意: 主页被锁(privacy=1)时这里也是空的, 但 is_privacy=-1、msg 为空,
@@ -1441,6 +1584,31 @@ async function loadInfo(uid, host){
 // 接口 sharedata.linkurl 给的是 WAP 主页, 手机上排版很挤, 网页版好用得多。
 function homeUrl(uid){
   return "https://www.51kanong.com/s-uid-" + uid + ".htm";
+}
+
+// 封禁判据: userHomev3 的 group_name。
+// 正常用户这一栏是等级名 —— 真君 / 教父 / 卡帝 / 卡尊 / 卡圣 / 天王 / 卡神 / 卡皇 /
+// 卡仙 / 卡友 / 卡妖 / 卡怪 / 老祖; 被处罚的人会换成一句说明:
+//   "内容违规被禁言"   (论坛后台的「禁止发言」)
+//   "违规,请查阅规范"  (论坛后台的「禁止访问」)
+// 所以只要出现"违规/禁言/封禁/封号/禁止"这类字, 就一定是处罚, 等级名里不会有这些字。
+// 反过来不成立: 拿封禁名单对了一遍, 27 人里只有 18 人换成了说明文字, 剩下 9 人接口里
+// 仍是等级名 —— 这是"看到了就提示", 不能当成"没提示=没问题"。
+const BAN_RE = /(违规|禁言|封禁|封号|禁止|黑名单|停用|禁访)/;
+function banOf(g){
+  const s = String(g || "").trim();
+  return BAN_RE.test(s) ? s : "";
+}
+// 红框: 三角警示图标走 SVG 路径(项目铁律 —— 别用字符画图标, 会偏心)
+function banHtml(g){
+  if (!g) return "";                 // 没封禁就一点东西都别输出, 否则会挂个空红框
+  return '<div class="ban">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" '
+    + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+    + '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86'
+    + 'a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+    + '<div><div class="bt">该用户已被封禁</div>'
+    + '<div class="bd">' + esc(g) + '</div></div></div>';
 }
 
 async function openPop(uid, fallbackName, forceHost){
@@ -1503,6 +1671,7 @@ async function openPop(uid, fallbackName, forceHost){
     + '</div>'
     + (grp  ? '<div class="kv"><span>用户组</span><b>'+esc(grp)+'</b></div>' : "")
     + (sign ? '<div class="kv sg"><span>个性签名</span><b>'+esc(sign.slice(0,60))+'</b></div>' : "")
+    + (banHtml(banOf(grp)) || "")
     + (lockHome ? '<div class="lm">锁主页：' + esc(dd.privacy_des || "主页仅自己可见") + '</div>' : "")
     // 看得到的板块不占地方, 只有被隐藏/关闭的才进下面这个灰框(异步填)
     + '<div class="hid" id="popHid" style="display:none"></div>'
@@ -1561,6 +1730,8 @@ document.addEventListener("click", (e) => {
   if (e.target.closest(".fb")) return;
   // 信息流里的「回复 N」也是自己开弹窗(第二次踩这个坑了: 页脚按钮那次是第一次)
   if (e.target.closest(".rc")) return;
+  // 顶部搜用户同理: 它自己开弹窗(搜索结果), 别刚开就被关掉
+  if (e.target.closest("#qbox")) return;
   if (pop.style.display === "block") closePop();
 });
 msk.onclick = closePop;
@@ -1619,6 +1790,18 @@ pop.addEventListener("click", (e) => {
       pop.innerHTML = XBTN + '<div class="pri"><div class="nil">正在读取资料…</div></div>';
       $("popX").onclick = closePop;
       openPop(uid, un.textContent.trim());
+    }
+    return;
+  }
+  // 搜索结果: 整行可点 -> 开这个人的资料卡。
+  // 同样先换上"正在读取资料…", 否则等接口那几秒看着像点了没反应
+  const sr = e.target.closest(".sr");
+  if (sr){
+    const uid = String(sr.dataset.uid || "");
+    if (uid){
+      pop.innerHTML = XBTN + '<div class="pri"><div class="nil">正在读取资料…</div></div>';
+      $("popX").onclick = closePop;
+      openPop(uid, (sr.querySelector(".srnm") || {}).textContent || "");
     }
     return;
   }
