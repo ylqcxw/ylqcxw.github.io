@@ -320,13 +320,23 @@
   /* 动态/帖子的权限说明(仅粉丝可见 / 仅自己可见): 琥珀色, 跟上面"锁主页"一个色系 */
   /* 资料框: 换另一端去查(有人锁了主页, 换端往往能看到) */
   /* 左: 资料来源   右: 换端(灰色小字, 不抢蓝色"打开主页"的视觉) */
-  #pop .tail{display:flex;align-items:baseline;justify-content:space-between;
-    gap:10px;margin-top:12px}
-  #pop .src{font-size:11px;color:var(--sub)}
+  /* 来源圆圈组: 就占一行靠右摆(以前左边还有"资料来源"四个字, 现在去掉了) */
+  #pop .tail{display:flex;align-items:baseline;justify-content:flex-end;
+    gap:8px 10px;margin-top:12px;flex-wrap:wrap}
+  /* 来源切换做成圆圈单选: 几个来源一次全列出来, 点一下直达 ——
+     以前只给"下一个", 想换到第三个得连点两下 */
+  #pop .srcs{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
   #pop .sw{margin:0;padding:0;border:0;background:none;font-family:inherit;
-    font-size:11px;color:#9ca3af;cursor:pointer;text-align:right;
-    text-decoration:underline;text-underline-offset:2px}
+    font-size:11px;color:#9ca3af;cursor:pointer;
+    display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  #pop .sw i{flex:none;width:11px;height:11px;border:1px solid #d1d5db;
+    border-radius:50%;background:none}
   #pop .sw:hover{color:var(--blue)}
+  #pop .sw:hover i{border-color:var(--blue)}
+  #pop .sw.on{color:var(--blue);font-weight:600}
+  /* 选中: 圈变蓝 + 中心一个实心点。用 radial-gradient 挖空中间, 不依赖弹窗底色 */
+  #pop .sw.on i{border-color:var(--blue);
+    background:radial-gradient(circle at 50% 50%, var(--blue) 0 2.5px, transparent 3px)}
   #pop .go{display:block;margin-top:11px;text-align:center;padding:8px 0;
     background:var(--blue);color:#fff;border-radius:9px;text-decoration:none;
     font-weight:600;font-size:13px}
@@ -425,9 +435,19 @@
       <input id="q" type="search" placeholder="搜用户名 / UID" autocomplete="off" maxlength="24">
       <button id="qbtn" class="ghost sm">搜用户</button>
     </div>
-    <select id="host">
-      <option value="https://my.kanong01.com" data-cat="7">卡农社区</option>
-      <option value="https://fen.kanong01.com" data-cat="27">卡农APP</option>
+    <!-- 这个下拉只管"搜用户 / 查资料"去哪个端问, 三个来源都在。
+         采集不走这里 —— 采集有自己固定的主备序列(见 feedHosts): 卡农社区为主,
+         采不到自动换卡农APP。卡农之家只查询、不采集 -->
+    <select id="host" title="搜用户 / 个人资料用哪个来源（三个都可以）。采集固定走卡农社区，采不到自动换卡农APP，跟这里的选项无关">
+      <option value="https://my.kanong01.com" data-cat="7" data-feed="1">卡农社区</option>
+      <option value="https://fen.kanong01.com" data-cat="27" data-feed="1">卡农APP</option>
+      <!-- 卡农之家: 第三个 APP。接口路径跟上面两个一样, cat_id=25 是「【首页】羊毛」。
+           实测快刷 1996 条: 169 羊毛交流 ×1476 / 285 老哥生活 ×441 / 282 羊毛专区 ×79
+           —— 三个板块都有, 只是 282 比例低(约 4%), 前两页翻不到, 要往下翻才出现。
+           不标 data-feed: 这个端翻页特别浅(20 页才回溯 4 小时), 补全 24 小时要一百多页,
+           太慢 —— 只留着查资料, 不参与采集。
+           它还有一套圈子长文(cat 1/6/7/8/9, id 是小数字 + type_value 是圈子 id), 别往这边混 -->
+      <option value="https://dai.kanongwang.com" data-cat="25">卡农之家</option>
     </select>
     <button id="btn">采集</button>
     <button id="auto" class="ghost sm">自动:15s</button>
@@ -506,7 +526,8 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.4</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.5</span><span class="dot">·</span>
+  <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
   <div class="cred">本网站由 <a href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
@@ -738,6 +759,14 @@ async function getJSON(url){
 }
 
 // deep=true  补全 24 小时(翻到够老为止, 十几页)
+// 采集用的端序列: 只取标了 data-feed 的, 第一个为主(卡农社区), 后面的是备用(卡农APP)。
+// 主端"采不到"(起始页请求失败 / 一整轮下来 24 小时内一条都没有)就自动换下一个。
+// 跟顶部那个"来源"下拉无关 —— 下拉只管搜用户和查资料, 三个端都能选
+function feedHosts(){
+  return [...$("host").options].filter(o => o.dataset.feed)
+    .map(o => ({host:o.value, cat:o.dataset.cat, name:o.textContent}));
+}
+
 // deep=false 快刷新帖: 只翻前 FRESH_PAGE 页, 新帖都在最前面, 一两秒就完事
 async function collect(deep = true){
   if (busy) return;
@@ -745,8 +774,9 @@ async function collect(deep = true){
   $("btn").disabled = true;
   $("dot").className = "dot run";
 
-  const host = $("host").value;
-  const cat  = $("host").selectedOptions[0].dataset.cat;
+  const feeds = feedHosts();
+  // pull() 里读的就是这两个变量 —— 换成备用端时只要重新赋值, 不用重建闭包
+  let host = feeds[0].host, cat = feeds[0].cat, feedName = feeds[0].name;
   const seen = new Set(curPosts().map(p => p.id));
   // 翻到"最老一条早于 24 小时前"就停 —— 一天约 1600~3000 帖, step=200 大概 8~15 页
   const goalLo = Date.now()/1000 - GOAL_H*3600;
@@ -804,26 +834,44 @@ async function collect(deep = true){
   lastFreshAt = Date.now();
 
   try{
-    for (let p = p0; p <= maxPage; p++){
-      const r = await pull(p);
-      if (!r) break;
-
-      const cov = (Date.now()/1000 - r.lo) / 3600;
-      $("state").textContent = (deep ? "采集中" : "刷新中") + " · 第 " + p + " 页"
-        + (deep ? " · 已回溯 " + cov.toFixed(1) + " 小时" : "");
-      if (r.lo <= goalLo) break;                 // 够 24 小时了
-      // "整页都是旧帖就停"只对快刷成立 —— 快刷的目的就是追平。
-      // 补全**不能**用这条: 它从第 FRESH_PAGE+1 页起步, 翻到的本来全是旧帖,
-      // 一 break 就停在 5 小时, 24 小时永远补不全(实测只留 600 条)。
-      // 补全只看"够不够 24 小时"和"接口还有没有"。
-      if (!deep && r.freshHere === 0) break;
-      // 补全要走十几页几十秒, 这段时间首页的新帖不能一直不动 ——
-      // 到点就插一轮快刷, 刷完再接着往下补
-      if (deep && pendingFresh && page === 1){
-        pendingFresh = false;
-        await burst();
+    // 主端采不到就换备用端。快刷(deep=false)不换 —— 它本来就只看前几页,
+    // 采不到是正常的(追平了), 下一轮再来, 没必要为此切端
+    for (let ai = 0; ai < feeds.length; ai++){
+      if (ai){
+        host = feeds[ai].host; cat = feeds[ai].cat; feedName = feeds[ai].name;
+        $("state").textContent = "「" + feeds[ai-1].name + "」没采到，换用「" + feedName + "」";
+        fresh = 0;
       }
-      await new Promise(r2 => setTimeout(r2, 150));
+      try{
+        for (let p = p0; p <= maxPage; p++){
+          const r = await pull(p);
+          if (!r) break;
+
+          const cov = (Date.now()/1000 - r.lo) / 3600;
+          $("state").textContent = (deep ? "采集中" : "刷新中") + " · 第 " + p + " 页"
+            + (deep ? " · 已回溯 " + cov.toFixed(1) + " 小时" : "");
+          if (r.lo <= goalLo) break;                 // 够 24 小时了
+          // "整页都是旧帖就停"只对快刷成立 —— 快刷的目的就是追平。
+          // 补全**不能**用这条: 它从第 FRESH_PAGE+1 页起步, 翻到的本来全是旧帖,
+          // 一 break 就停在 5 小时, 24 小时永远补不全(实测只留 600 条)。
+          // 补全只看"够不够 24 小时"和"接口还有没有"。
+          if (!deep && r.freshHere === 0) break;
+          // 补全要走十几页几十秒, 这段时间首页的新帖不能一直不动 ——
+          // 到点就插一轮快刷, 刷完再接着往下补
+          if (deep && pendingFresh && page === 1){
+            pendingFresh = false;
+            await burst();
+          }
+          await new Promise(r2 => setTimeout(r2, 150));
+        }
+        // 一整轮翻完, 24 小时内一条都没有 = 这个端根本没给数据(库里也是空的),
+        // 不是"追平了" —— 换备用端再试
+        if (deep && !VIEW.length && ai + 1 < feeds.length) throw new Error("没采到数据");
+        break;                                        // 这个端成了
+      }catch(e){
+        // 最后一个端也失败 -> 抛给外层报错; 否则静默换下一个
+        if (ai === feeds.length - 1) throw e;
+      }
     }
 
     const dropped = await pruneOld();
@@ -831,7 +879,8 @@ async function collect(deep = true){
     $("dot").className = "dot";
     $("state").textContent = (deep ? "就绪" : "已刷新")
       + " · 24 小时内 " + VIEW.length.toLocaleString()
-      + " 帖 · 本次新增 " + fresh + (dropped ? " · 清理过期 " + dropped : "");
+      + " 帖 · 本次新增 " + fresh + (dropped ? " · 清理过期 " + dropped : "")
+      + " · 来源 " + feedName;   // 说清楚是哪一端采的(切了备用端时尤其必要)
     $("err").style.display = "none";
   }catch(e){
     $("dot").className = "dot down";
@@ -839,7 +888,8 @@ async function collect(deep = true){
     const box = $("err");
     box.style.display = "block";
     box.innerHTML = "<b>采集失败：</b>" + esc(e.message)
-      + " —— 可能是网络不通、接口变更，或卡农侧临时限流。稍后再试即可。";
+      + " —— " + esc(feeds.map(f => f.name).join("、")) + " 都试过了。"
+      + "可能是网络不通、接口变更，或卡农侧临时限流。稍后再试即可。";
   }finally{
     busy = false;
     $("btn").disabled = false;
@@ -1095,6 +1145,11 @@ function avatarUrl(uid, size){
   return "https://ucenter.kanong.com/avatar.php?uid=" + uid + "&size=" + (size || "small");
 }
 
+// 资料缓存的键: 端 + uid。同一个人三个端返回的资料可以不一样
+// (锁主页 / 头像 / 粉丝数都各配各的), 而且这样切走再切回来能直接命中缓存,
+// 不用再问一次服务器 —— 以前按 uid 存, 切一圈回来会把上一个端的数据显示成这个端的
+const homeKey = (host, uid) => (host || $("host").value) + "|" + uid;
+
 async function loadAvatar(uid){
   if (!uid) return;
   if (avatarCache.has(uid)){ paint(uid); return; }
@@ -1105,7 +1160,7 @@ async function loadAvatar(uid){
   try{
     const d = await getJSON($("host").value + "/mag/user/v3/user/userHomev3?user_id=" + uid);
     const dd = d.data || {};
-    homeCache.set(uid, dd);
+    homeCache.set(homeKey($("host").value, uid), dd);
     avatarCache.set(uid, dd.head || "");
     paint(uid);
   }catch(e){
@@ -1118,8 +1173,8 @@ async function loadAvatar(uid){
 // 头像已经在渲染时直接指向 ucenter, 这里不再改 src ——
 // 否则会把 1.3KB 的 small 换成 5KB 的 OSS 原图, 白费流量。
 // 这个懒加载现在只为拿用户组徽章(group_name)。
-function paint(uid){
-  const g = ((homeCache.get(uid) || {}).group_name || "").trim();
+function paint(uid, host){
+  const g = ((homeCache.get(homeKey(host, uid)) || {}).group_name || "").trim();
   document.querySelectorAll('[data-grp="'+uid+'"]').forEach(el => {
     el.textContent = g;
     el.style.display = g ? "inline-block" : "none";   // 没拿到就不占位
@@ -1167,13 +1222,28 @@ const PRIVACY_HTML =
 + '<li>政策如有调整会更新在本页，继续使用即视为接受。</li></ul>'
 
 + '<p class="dim">本工具为非官方的第三方小工具，与卡农社区官方无关。'
-+ '最近更新：2026-10-06</p>';
++ '最近更新：2026-10-08</p>';
 
 // 版本历史: 跟仓库根目录 CHANGELOG.md 保持同步, 两边都要改。
-// 页脚的 v1.0.4 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
+// 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.4 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.5 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.5 · 2026-10-08</h5>'
++ '<ul>'
++ '<li>顶部「来源」下拉改为<b>只管搜用户和个人资料</b>，三个来源都能选；<b>采集不再跟随它</b>。</li>'
++ '<li>采集改为<b>主备序列</b>：默认卡农社区（<code>cat_id=7</code>），采不到自动换备用端卡农APP'
++ '（<code>cat_id=27</code>）；状态栏标明本轮实际用的来源。</li>'
++ '<li><b>卡农之家只查询、不采集</b>：该端翻页特别浅（约 100 帖/小时），'
++ '补全 24 小时要一百多页。</li>'
++ '<li>资料卡的来源切换改为<b>圆圈单选</b>，三个来源一次列全，点一下直达'
++ '（以前只给「下一个」，换到第三个要连点两下）；去掉前面「资料来源」四个字。</li>'
++ '<li>资料缓存按<b>「端 + UID」</b>存：换个端查完再切回来<b>直接命中缓存，不再重复请求</b>'
++ '（以前按 UID 存，两端数据会互相覆盖，切回来显示的其实是上一个端的）。</li>'
++ '<li>页脚新增<b>「使用说明」</b>弹窗，汇总看帖 / 搜用户 / 查资料 / 采集来源 / 本地库的实际行为。</li>'
++ '<li>换下拉不再重新采集，只清资料类缓存并提示影响范围。</li>'
++ '</ul>'
 
 + '<h5>v1.0.4 · 2026-10-07 ~ 10-08</h5>'
 + '<ul>'
@@ -1234,6 +1304,44 @@ const CHANGELOG_HTML =
 + '</ul>';
 
 // 页脚两篇文档共用一个宽版弹窗
+// 页脚「使用说明」弹窗。写的是页面现在的实际行为 —— 改了功能记得同步这里
+const HELP_HTML =
+  '<h4>使用说明</h4>'
++ '<p class="dim">帖子由你自己的浏览器直接向卡农接口请求、存在本地，不经过任何服务器</p>'
+
++ '<h5>看帖</h5>'
++ '<ul>'
++ '<li>打开就自动采集<b>最近 24 小时</b>的帖子：先出前几页，同时后台继续往前翻补全。</li>'
++ '<li>停在第 1 页时每 <b>15 秒</b>刷一轮新帖；翻到第 2 页往后会自动暂停（免得列表在眼前跳），'
++ '回到第 1 页立刻补一轮。右侧<b>「自动」</b>按钮可改成 60 秒 / 5 分钟 / 关掉。</li>'
++ '<li>点<b>标题</b>跳原站（电脑跳网页版，手机跳 APP 页面）；点<b>用户名</b>开资料卡；'
++ '点<b>「回复 N」</b>看评论。</li>'
++ '<li>发帖密度图<b>点柱子</b>可以看某个时段的帖子。</li>'
++ '</ul>'
+
++ '<h5>搜用户 / 查资料</h5>'
++ '<ul>'
++ '<li>顶部搜索框输用户名或 UID 后回车；搜到的结果点一下开资料卡。</li>'
++ '<li>资料卡底部三个圆圈是<b>查询来源</b>，点一下就换那一端重查 —— 同一个人三个端能看到的'
++ '程度可能不一样（有的端锁主页、有的不锁），换一端往往就看得到了。</li>'
++ '<li>顶部那个<b>「来源」下拉</b>是同一个用途：<b>只影响搜用户和个人资料，不影响采集</b>。</li>'
++ '</ul>'
+
++ '<h5>采集来源</h5>'
++ '<ul>'
++ '<li>采集固定走<b>卡农社区</b>；采不到（请求失败，或整轮翻完仍是一条都没有）会自动换'
++ '<b>卡农APP</b>。状态栏末尾始终写明这一轮实际用的是哪一端。</li>'
++ '<li><b>卡农之家只用来查资料，不参与采集</b>：这个端翻页特别浅，补全 24 小时要一百多页。</li>'
++ '</ul>'
+
++ '<h5>本地库</h5>'
++ '<ul>'
++ '<li>数据存在浏览器的 IndexedDB 里，<b>超过 48 小时自动清掉</b>，库不会越攒越大。</li>'
++ '<li>换浏览器 / 清缓存会丢。展开<b>「本地库管理 · 导出备份」</b>可以导出 JSON 备份，'
++ '需要时再导入回来。</li>'
++ '<li>微信 / QQ 内置浏览器不支持直接下载文件，需点右上角「···」→ 在浏览器打开，再导出。</li>'
++ '</ul>';
+
 function showDoc(html){
   pop.classList.add("wide");
   pop.innerHTML = XBTN + '<div class="pri">' + html + '</div>';
@@ -1243,6 +1351,7 @@ function showDoc(html){
 }
 $("btnPrivacy").onclick   = () => showDoc(PRIVACY_HTML);
 $("btnChangelog").onclick = () => showDoc(CHANGELOG_HTML);
+$("btnHelp").onclick      = () => showDoc(HELP_HTML);
 
 const infoCache  = new Map();   // uid -> {注册时间, 用户组, 积分, ...}
 const boardCache = new Map();   // host|uid -> {act:{n,locked,msg}, thr:{...}}
@@ -1668,41 +1777,47 @@ function banHtml(g){
     + '<div class="bd">' + esc(g) + '</div></div></div>';
 }
 
+// 资料卡的来源切换: 当前查的是谁 / 查的哪一端, 记在这里 ——
+// 弹窗内容是 innerHTML 反复重建的, 按钮绑不住, 只能在 pop 上委托一次
+let popUid = null, popFallback = "", popHost = "";
+
 async function openPop(uid, fallbackName, forceHost){
   if (!uid) return;
   pop.classList.remove("wide");          // 隐私弹窗加的宽版样式要还原, 否则资料卡会跟着变宽
   pop.classList.remove("pic");           // 读全文那个更宽的也要还原
   cmtReset();                            // 资料卡里没有评论区, 别留着上一篇的翻页状态
-  // forceHost = 用户点了"换另一端查", 此时不能用当前端的缓存
+  // forceHost = 用户点了圆圈选了别的来源, 此时不能用当前端的缓存
   const host = forceHost || $("host").value;
+  // 弹窗内容会被 innerHTML 反复重建, 按钮绑不住 —— 记下当前这仨, 交给下面的委托去切
+  popUid = uid; popFallback = fallbackName || ""; popHost = host;
   const opts = [...$("host").options];
-  const other = opts.find(o => o.value !== host) || opts[0];
-  // 切端按钮和"资料来源"两处在出错时也要显示, 抽出来复用
-  const tail = () => '<div class="tail"><span class="src">资料来源：'
-    + esc((opts.find(o => o.value === host) || opts[0]).textContent)
-    + '</span><button class="sw" id="popSw">切换到「' + esc(other.textContent) + '」来源</button></div>';
-  const onSw = () => { $("popSw").onclick = () => openPop(uid, fallbackName, other.value); };
+  // 切端按钮在出错时也要显示, 抽出来复用。
+  // 三个来源全列出来 + 圆圈单选(当前那个是实心圈), 点一下就到 —— 以前只给"下一个",
+  // 想换到第三个得连点两下。前面不再写"资料来源"四个字: 圈 + 端名已经说清楚了
+  const tail = () => '<div class="tail"><span class="srcs" title="用哪个来源查这份资料">'
+    + opts.map(o => '<button class="sw' + (o.value === host ? " on" : "") + '" data-host="'
+        + esc(o.value) + '"><i></i>' + esc(o.textContent) + '</button>').join("")
+    + '</span></div>';
 
-  let dd = (forceHost && forceHost !== $("host").value) ? null : homeCache.get(uid);
+  // 缓存按"端|uid"取 —— 切走再切回来直接命中, 不再重新请求
+  let dd = homeCache.get(homeKey(host, uid));
   if (!dd){
     pop.innerHTML = XBTN
       + '<div style="padding:6px 0;color:#6b7280">正在读取资料…</div>' + tail();
     msk.style.display = "block";
     pop.style.display = "block";
     $("popX").onclick = closePop;
-    onSw();
     try{
       const d = await getJSON(host + "/mag/user/v3/user/userHomev3?user_id=" + uid);
       dd = (d && d.data) || {};
-      if (!forceHost || forceHost === $("host").value) homeCache.set(uid, dd);
+      homeCache.set(homeKey(host, uid), dd);
       avatarCache.set(uid, dd.head || "");
-      paint(uid);
+      paint(uid, host);
     }catch(e){
       pop.innerHTML = XBTN
         + '<div style="padding:6px 0;color:#991b1b">读取失败：' + esc(String(e && e.message || e)) + '</div>'
         + tail();
       $("popX").onclick = closePop;
-      onSw();
       return;
     }
   }
@@ -1737,7 +1852,6 @@ async function openPop(uid, fallbackName, forceHost){
   msk.style.display = "block";
   pop.style.display = "block";
   $("popX").onclick = closePop;
-  onSw();
 
   // 注册天数只有 getUserInfo 给, 懒加载; 卡还开着就回填, 已关掉就丢掉。
   // 要跟着 host 走 —— 换端查的时候得问那端的接口
@@ -1768,6 +1882,16 @@ async function openPop(uid, fallbackName, forceHost){
       '<div class="hr"><span>' + esc(k) + '</span><b>' + esc(v) + '</b></div>').join("");
   });
 }
+
+// 来源切换: 三个来源都用圆圈列出来, 点一下直接换过去(不用连点两下轮)。
+// 弹窗内容是 innerHTML 反复重建的, 按钮上绑的事件会被冲掉 —— 委托到 pop 上, 只绑一次
+pop.addEventListener("click", (e) => {
+  const b = e.target && e.target.closest && e.target.closest(".sw[data-host]");
+  if (!b || !popUid) return;
+  const h = b.dataset.host;
+  if (h === popHost) return;             // 点的是当前来源, 不用重查
+  openPop(popUid, popFallback, h);
+});
 
 // 点用户名开资料卡(手机没有 hover, 原来的 mouseover 在手机上根本触发不了)
 document.addEventListener("click", (e) => {
@@ -1883,14 +2007,15 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "ArrowRight") lbStep(1);
 });
 // 换端 = 换 cat_id, 旧端的数据含义不同, 清掉头像缓存并立刻重采
+// 这个下拉只管"搜用户 / 查资料"去哪一端问。采集有自己的主备序列(见 feedHosts),
+// 所以换这里**不重新采集** —— 帖子数据跟这个选项无关, 也不用清库
 $("host").onchange = () => {
   saveHost();               // 记住选择, 下次打开还是这一端
-  avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); cmtCache.clear();
-  fullCache.clear(); page = 1;
-  // collect 忙的时候会直接 return, 不说一声的话看着像"切了端没反应"。
-  // 其实下一轮 15 秒快刷会用新的 host, 数据照样会来
-  if (busy) $("state").textContent = "正在采上一轮，切端将在下一轮生效";
-  collect(true);
+  // 不用清缓存了: 资料 / 注册信息 / 板块 / 评论 / 全文这些缓存的键都带端
+  // (见 homeKey 与 boardCache 那几个), 换端只是换了一套键, 切回来还能直接命中
+  // 以前这里会 collect(true) 重新采一遍, 现在不采了, 不说一声看着像"点了没反应"
+  $("state").textContent = "查询来源已切到「" + $("host").selectedOptions[0].textContent
+    + "」· 影响搜用户和个人资料（采集不受影响）";
 };
 // 跳页。三个入口共用: 点 ‹ › / 页码框回车 / 点"跳转"
 function gotoPage(n){
@@ -2006,7 +2131,7 @@ function restoreHost(){
 }
 
 (async function boot(){
-  restoreHost();             // 必须在采集之前, 否则首轮会用错的端
+  restoreHost();             // 恢复上次选的查询来源(只影响搜用户 / 资料卡, 采集不走这里)
   // 请求标识的展开/收起: dbStat 每次 render 都整个重建, 按钮绑不住, 只能在容器上委托一次
   $("dbStat").addEventListener("click", (e) => {
     if (e.target && e.target.closest && e.target.closest("#uaMore")){
