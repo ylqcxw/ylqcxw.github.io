@@ -272,6 +272,10 @@
   .warn b{color:#92400e}
   .err{background:#fef2f2;border:1px solid #fecaca;border-radius:10px;
     padding:11px 15px;margin-bottom:14px;font-size:12.5px;color:#991b1b;display:none}
+  /* 微信 / QQ 里打不开下载, 提前把出路写在导出按钮下面(琥珀色, 跟上面的报错区分开) */
+  .apptip{display:none;margin-top:10px;background:#fffbeb;border:1px solid #fde68a;
+    border-radius:10px;padding:10px 13px;font-size:12.5px;color:#92400e;line-height:1.65}
+  .apptip b{color:#b45309}
 
   #msk{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:98;display:none}
   /* 用户资料卡: 点用户名弹出。手机没有 hover, 所以是点开 + 关闭按钮, 不是悬停浮层 */
@@ -340,6 +344,16 @@
   .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:8px 0}
   .kv span:nth-child(odd){color:var(--sub)}
   .kv span:nth-child(even){color:var(--txt);font-variant-numeric:tabular-nums}
+  /* 请求标识(UA)有 150+ 字符, 手机上单行省略号等于没写。默认截 2 行, 点「展开」看全。
+     注意 .uat 是 .uav 的长子, 会被上面 nth-child(odd) 套成灰色, 得自己把颜色定回来 */
+  .uav{font-size:12px;line-height:1.55;color:var(--txt)}
+  .uat{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+    overflow:hidden;word-break:break-all;color:var(--txt)}
+  .uav.open .uat{display:block;overflow:visible;-webkit-line-clamp:99}
+  .uab{margin-left:6px;padding:0;border:0;background:none;font:inherit;font-size:12px;
+    color:var(--blue);cursor:pointer}
+  .uab:hover,.uab:focus,.uab:focus-visible{text-decoration:underline;outline:none}
+  .uab{display:none}
   /* 中等屏(641~1000px): 总宽变窄了, 用户名列跟着收一点, 否则标题被挤得没地方。
      跟下面的 640px 块互斥(小屏整张表变成卡片, 列宽本来就不生效)。 */
   @media(min-width:641px) and (max-width:1000px){
@@ -482,6 +496,8 @@
         <button class="ghost sm" id="btnWipe">清空本地库</button>
         <input type="file" id="fileIn" accept=".json" style="display:none">
       </div>
+      <!-- 微信 / QQ 内置浏览器里下载不生效, 这条提示由 JS 填内容并显示 -->
+      <div class="apptip" id="expTip"></div>
     </div>
   </details>
 
@@ -615,6 +631,25 @@ function thumbUrl(u){
 function isPhone(){
   try{ if (window.matchMedia("(max-width:640px)").matches) return true; }catch(e){}
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
+// 微信 / QQ 内置浏览器会把 a[download] + blob 的下载拦掉: 点了要么没反应,
+// 要么跳一片乱码的 JSON。这两个壳里没法给文件, 只能让用户在系统浏览器里重开再导。
+// 判据是 UA 里的壳标识: 微信 MicroMessenger, QQ 内置是 " QQ/8.4.10" 这种版本号。
+// (QQ 浏览器自己 UA 也有 MQQBrowser, 但只在内置 webview 里带 QQ/x.y)
+function inAppWebview(){
+  const ua = navigator.userAgent || "";
+  if (/MicroMessenger/i.test(ua)) return "微信";
+  if (/\sQQ\/[\d.]+/i.test(ua)) return "QQ";
+  return "";
+}
+// 把出路写进按钮下面那条琥珀提示。返回 true = 确实在壳里(调用方据此拦下下载)
+function showExpTip(app){
+  const box = $("expTip");
+  if (!app || !box) return false;
+  box.style.display = "block";
+  box.innerHTML = "当前是在 <b>" + app + "</b> 里打开的，内置浏览器不支持直接下载文件。"
+    + "请点右上角「···」→「在浏览器打开」，打开后再点「导出 JSON」。";
+  return true;
 }
 function postUrl(p){
   // PC 端统一跳网页版 (www.51kanong.com/xyk-<tid>-1.htm), 手机端保持原来的地址不变
@@ -1022,6 +1057,7 @@ async function renderDbStat(){
   }
   // ALL 已按时间倒序, 最早一条就是末尾, 不用 Math.min 展开
   const earliest = ALL.length ? ALL[ALL.length-1].publish_time : 0;
+  const ua = navigator.userAgent || "";
   $("dbStat").innerHTML =
       '<span>库内帖子</span><span>' + ALL.length.toLocaleString() + ' 条（两端共享，超 ' + KEEP_H + ' 小时自动清）</span>'
     + '<span>最早一条</span><span>' + (earliest ? fmtClock(earliest) + "（" + ((Date.now()/1000 - earliest)/3600).toFixed(1) + " 小时前）" : "-") + '</span>'
@@ -1030,9 +1066,23 @@ async function renderDbStat(){
     // 把实际发出去的 UA 摆出来, 一眼能确认是"访问者自己的浏览器"而不是写死的某个值。
     // 顺带说明: 浏览器不让 JS 改 UA, 想假装也假装不了
     + '<span>请求标识</span>'
-    + '<span title="浏览器自带，JS 改不了：' + esc(navigator.userAgent) + '"'
-    + ' style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
-    + esc(navigator.userAgent) + '</span>';
+    + '<span class="uav" id="uaBox" title="浏览器自带，JS 改不了：' + esc(ua) + '">'
+      + '<span class="uat" id="uaTxt">' + esc(ua) + '</span>'
+      + '<button class="uab" id="uaMore">展开</button>'
+    + '</span>';
+  syncUaMore();
+}
+
+// 请求标识有 150+ 字符, 手机上单行省略号等于没写: 默认截 2 行, 点「展开」看全。
+// render() 每采一页就跑一次, dbStat 会被整个重建 —— 展开状态只能放外面存着。
+let uaOpen = false;
+function syncUaMore(){
+  const box = $("uaBox"), txt = $("uaTxt"), btn = $("uaMore");
+  if (!box || !txt || !btn) return;
+  box.classList.toggle("open", uaOpen);
+  // 展开后 scrollHeight == clientHeight, 量不出是否溢出, 所以展开时也留着按钮(用来收起)
+  btn.style.display = (uaOpen || txt.scrollHeight > txt.clientHeight + 1) ? "inline-block" : "none";
+  btn.textContent = uaOpen ? "收起" : "展开";
 }
 
 // ---------------------------------------------------------------- 头像
@@ -1120,16 +1170,23 @@ const PRIVACY_HTML =
 + '最近更新：2026-10-06</p>';
 
 // 版本历史: 跟仓库根目录 CHANGELOG.md 保持同步, 两边都要改。
-// 页脚显示的 v1.0.2 是写死在 HTML 里的, 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
+// 页脚的 v1.0.4 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
 + '<p class="dim">当前 v1.0.4 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
 
-+ '<h5>v1.0.4 · 2026-10-07</h5>'
++ '<h5>v1.0.4 · 2026-10-07 ~ 10-08</h5>'
 + '<ul>'
 + '<li>新增<b>搜用户</b>：输入用户名按精确匹配检索，点击结果打开资料卡；输入 UID 直接打开资料卡。</li>'
 + '<li>资料卡新增<b>封禁状态提示</b>：接口 <code>group_name</code> 返回处罚说明时，'
 + '显示红色「该用户已被封禁」提示框，并附接口原文。</li>'
++ '<li><b>列表列宽</b>调整：用户名列 172px 加宽至 250px，标题列占据剩余宽度；'
++ '中等屏（641~1000px）用户名列收至 186px，避免标题被挤压。</li>'
++ '<li><b>「回复 N」按钮</b>去掉自带的焦点框：点击后残留的蓝框易被误认为未点掉，'
++ '悬停与聚焦改为下划线反馈。</li>'
++ '<li><b>微信 / QQ 内置浏览器</b>不支持直接下载文件：命中时在导出按钮下方提示'
++ '「右上角 ··· → 在浏览器打开」后重新导出，并拦下本次导出。</li>'
++ '<li><b>请求标识</b>在手机端不再单行省略：默认截断两行，可点「展开」查看完整内容。</li>'
 + '</ul>'
 
 + '<h5>v1.0.3 · 2026-10-07</h5>'
@@ -1873,6 +1930,12 @@ $("auto").onclick = () => {
 };
 
 $("btnExport").onclick = () => {
+  // 壳里点了也下不来, 别让用户以为导出了 —— 拦下来并告诉他怎么出去
+  if (showExpTip(inAppWebview())){
+    const box = $("expTip");
+    if (box && box.scrollIntoView) box.scrollIntoView({block:"nearest"});
+    return;
+  }
   const blob = new Blob([JSON.stringify(ALL)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -1944,6 +2007,15 @@ function restoreHost(){
 
 (async function boot(){
   restoreHost();             // 必须在采集之前, 否则首轮会用错的端
+  // 请求标识的展开/收起: dbStat 每次 render 都整个重建, 按钮绑不住, 只能在容器上委托一次
+  $("dbStat").addEventListener("click", (e) => {
+    if (e.target && e.target.closest && e.target.closest("#uaMore")){
+      uaOpen = !uaOpen;
+      syncUaMore();
+    }
+  });
+  // 微信 / QQ 里先把提示摆出来, 别等用户点了导出才发现下载不了
+  showExpTip(inAppWebview());
   try{
     await dbOpen();
     ALL = await dbAll();
