@@ -1150,24 +1150,28 @@ function avatarUrl(uid, size){
 // 不用再问一次服务器 —— 以前按 uid 存, 切一圈回来会把上一个端的数据显示成这个端的
 const homeKey = (host, uid) => (host || $("host").value) + "|" + uid;
 
+// 头像缓存只是"有没有为这个端拉过 userHomev3"的标记(顺带存该端的 head),
+// 键跟 homeCache 一样是 端|uid —— 按 uid 存的话, 换端查完再切回来会被判成"已加载过",
+// 徽章和头像就都停在旧端那一份上。资料框显示头像不走这里, 直接读那端的 dd.head。
 async function loadAvatar(uid){
   if (!uid) return;
-  if (avatarCache.has(uid)){ paint(uid); return; }
+  const ak = homeKey($("host").value, uid);
+  if (avatarCache.has(ak)){ paint(uid); return; }
   // 这个懒加载现在只为拿用户组徽章(group_name)。失败过就一分钟内别再试,
   // 否则 15 秒一轮的刷新会把失败的 uid 反复打请求
-  if (Date.now() < (avatarFail.get(uid) || 0)) return;
-  avatarCache.set(uid, null);
+  if (Date.now() < (avatarFail.get(ak) || 0)) return;
+  avatarCache.set(ak, null);
   try{
     const d = await getJSON($("host").value + "/mag/user/v3/user/userHomev3?user_id=" + uid);
     const dd = d.data || {};
     homeCache.set(homeKey($("host").value, uid), dd);
-    avatarCache.set(uid, dd.head || "");
+    avatarCache.set(ak, dd.head || "");
     paint(uid);
   }catch(e){
-    // 关键: 必须删掉占位。留着的话 avatarCache.has(uid) 永远为真,
+    // 关键: 必须删掉占位。留着的话 avatarCache.has(ak) 永远为真,
     // 这一次网络抖动就让这个用户的徽章再也补不上
-    avatarCache.delete(uid);
-    avatarFail.set(uid, Date.now() + 60000);
+    avatarCache.delete(ak);
+    avatarFail.set(ak, Date.now() + 60000);
   }
 }
 // 头像已经在渲染时直接指向 ucenter, 这里不再改 src ——
@@ -1241,6 +1245,8 @@ const CHANGELOG_HTML =
 + '（以前只给「下一个」，换到第三个要连点两下）；去掉前面「资料来源」四个字。</li>'
 + '<li>资料缓存按<b>「端 + UID」</b>存：换个端查完再切回来<b>直接命中缓存，不再重复请求</b>'
 + '（以前按 UID 存，两端数据会互相覆盖，切回来显示的其实是上一个端的）。</li>'
++ '<li>修复：<b>切换来源时头像不跟着换</b>。资料框以前读的是按 UID 缓存的头像，'
++ '跟端无关，切了来源头像还是旧端那张；现在改为直接用当前这一端返回的头像地址。</li>'
 + '<li>页脚新增<b>「使用说明」</b>弹窗，汇总看帖 / 搜用户 / 查资料 / 采集来源 / 本地库的实际行为。</li>'
 + '<li>换下拉不再重新采集，只清资料类缓存并提示影响范围。</li>'
 + '</ul>'
@@ -1811,7 +1817,6 @@ async function openPop(uid, fallbackName, forceHost){
       const d = await getJSON(host + "/mag/user/v3/user/userHomev3?user_id=" + uid);
       dd = (d && d.data) || {};
       homeCache.set(homeKey(host, uid), dd);
-      avatarCache.set(uid, dd.head || "");
       paint(uid, host);
     }catch(e){
       pop.innerHTML = XBTN
@@ -1831,8 +1836,10 @@ async function openPop(uid, fallbackName, forceHost){
 
   pop.innerHTML = XBTN
     + '<div style="display:flex;gap:12px;align-items:center">'
-      // 资料框要清楚的头像: 优先 OSS 原图, 没有就用 ucenter 的 middle
-      + '<img src="'+esc(avatarCache.get(uid) || avatarUrl(uid, "middle"))+'">'
+      // 资料框要清楚的头像: 优先该端返回的 OSS 原图, 没有就用 ucenter 的 middle。
+      // 直接取 dd.head(这份 dd 就是当前这个端的数据), **不要**去读 avatarCache ——
+      // 那个是按 uid 存的、不区分端, 切了来源会一直显示上一个端的头像
+      + '<img src="'+esc(dd.head || avatarUrl(uid, "middle"))+'">'
       + '<div style="min-width:0">'
         + '<a class="nm2" href="'+esc(url)+'" target="_blank" rel="noreferrer">'+esc(nm)+'</a>'
         + '<div class="rd">UID '+esc(uid)+'</div></div></div>'
