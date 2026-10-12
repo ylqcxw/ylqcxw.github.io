@@ -79,11 +79,18 @@
   #pop .pri .dim{color:var(--sub);font-size:11.5px;margin-top:12px}
   /* 全文弹窗: 标题 / 一行小信息 / 正文(可能带图) */
   #pop .fm{margin:0 0 10px;font-size:11.5px;color:var(--sub)}
+  /* 评论弹窗 meta 行里的「刷新」 */
+  #pop .fm .rf{font-weight:400;color:var(--blue);cursor:pointer}
+  #pop .fm .rf:hover{text-decoration:underline}
   #pop .fx{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.8}
   /* 上面 #pop img 是给头像用的(54px 圆形), 会连正文图一起套进去 —— 这里必须把
      width/height/border-radius/object-fit 全部覆盖回来, 否则图全是 54px 小圆图 */
   #pop .fx img{width:auto;height:auto;max-width:100%;object-fit:contain;background:none;
     border-radius:8px;margin:9px 0;display:block;cursor:zoom-in}
+  /* 正文里的视频(接口给的是 <video poster><source src></video>)—— 别用原来的
+     controls 尺寸, 让它跟着弹窗宽度走 */
+  #pop .fx video{width:auto;height:auto;max-width:100%;max-height:64vh;display:block;
+    margin:9px 0;border-radius:8px;background:#000;cursor:default}
   /* 搜出来的用户: 头像 + 名字 + 签名, 整行可点(点开资料卡) */
   #pop .sr{display:flex;align-items:center;gap:9px;padding:8px 6px;border-radius:8px;
     cursor:pointer;border-bottom:1px dashed #eceff3}
@@ -193,11 +200,18 @@
   .thumb{width:46px;height:46px;object-fit:cover;border-radius:6px;background:#f1f3f5;
     border:1px solid var(--line);cursor:zoom-in;transition:transform .15s ease}
   .thumb:hover{transform:scale(1.08);border-color:var(--blue)}
+  /* 有视频的缩略图: 外面套一层定位用, 中间盖个播放三角(纯 CSS 画的, 不用字符) */
+  .tw{position:relative;display:inline-block;line-height:0}
+  .pb{position:absolute;inset:0;margin:auto;width:0;height:0;
+    border-left:11px solid rgba(255,255,255,.95);
+    border-top:7px solid transparent;border-bottom:7px solid transparent;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));pointer-events:none}
   /* 灯箱: 点缩略图看大图 */
   .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;
     align-items:center;justify-content:center;z-index:9999;padding:24px}
   .lightbox.on{display:flex}
   .lightbox img{max-width:96%;max-height:88vh;object-fit:contain;border-radius:10px;background:#fff}
+  .lightbox video{max-width:96%;max-height:88vh;border-radius:10px;background:#000}
   /* 叉号必须用 SVG 画, 不能用 "×" 字符: × 的字形只占 cap-height 区域,
      下方 descender 是空的, 视觉中心比行盒中心偏上, 怎么调 line-height
      都跟圆圈不同心。SVG 路径是对称的, 天然居中。 */
@@ -526,7 +540,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.5</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.6</span><span class="dot">·</span>
   <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
@@ -550,6 +564,8 @@
        注意内联事件里访问不到页面脚本的 const $(它不是 window 属性), 只能用 getElementById -->
   <img id="lbImg" src="" alt=""
        onerror="this.style.visibility='hidden';var c=document.getElementById('lbCount');if(c)c.textContent='图片加载失败'">
+  <!-- 视频: 帖子配图里有 video_url 时点开播它, 跟图片共用同一套左右翻 -->
+  <video id="lbVideo" controls playsinline preload="metadata" hidden></video>
   <div class="lb-count" id="lbCount"></div>
 </div>
 
@@ -642,6 +658,8 @@ function rcBtn(p, zero, withWord){
 // 接口给的 tburl 和 url 其实是同一个地址(只有水印, 没有缩放) ——
 // 按 46px 显示却下载上百 KB 原图太浪费, 自己插一段 OSS resize。实测 109KB -> 6KB。
 // 灯箱仍然用原图 url, 保证放大后清晰。
+// 视频判定: 配图项里的 video_url / 正文 <video> 都是 mp4, 偶尔有 m3u8、mov
+const isVideo = (u) => /\.(mp4|m3u8|webm|mov)(\?|#|$)/i.test(String(u || ""));
 function thumbUrl(u){
   if (!u) return "";
   if (u.indexOf("x-oss-process=image/") >= 0)
@@ -1051,11 +1069,16 @@ function renderRows(){
     const pics = (p.pics_arr || []).slice(0, 4);
     const thumbs = pics.length
       ? '<div class="thumbs">' + pics.map(it => {
-          const big = it.url || it.tburl || "";
+          // 有 video_url 的就是视频帖: 封面是那张 jpg, 点开播 mp4(不是看大图)
+          const vd  = String(it.video_url || "");
+          const big = (vd && isVideo(vd)) ? vd : (it.url || it.tburl || "");
           // onerror 直接把破图挪走: 图挂了(过期/防盗链)时留一个裂图图标很难看
-          return big ? '<img class="thumb" loading="lazy" src="'+esc(thumbUrl(it.tburl || it.url))+'"'
+          const img = big ? '<img class="thumb" loading="lazy" src="'+esc(thumbUrl(it.tburl || it.url))+'"'
                       + ' data-big="'+esc(big)+'"'
                       + ' onerror="this.remove()">' : "";
+          if (!img) return "";
+          // 视频盖一个播放三角; 包一层 span 是为了给它定位(::after 加不到 img 上)
+          return isVideo(big) ? '<span class="tw">' + img + '<i class="pb"></i></span>' : img;
         }).join("") + '</div>'
       : "";
     return '<tr>'
@@ -1232,7 +1255,19 @@ const PRIVACY_HTML =
 // 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.5 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.6 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.6 · 2026-10-12</h5>'
++ '<ul>'
++ '<li><b>视频能看了</b>：带视频的帖子以前只显示一张封面图，点开还是那张图，视频整个不见。'
++ '现在列表缩略图上盖一个<b>播放三角</b>，点开<b>直接播视频</b>（跟图片一样能左右翻）；'
++ '点「全文」看到的正文里，视频也正常显示了。视频都是<b>点了才加载</b>，不会一进页面就拖几兆流量。</li>'
++ '<li><b>回复能刷出新的了</b>：以前评论拉过一次就永久缓存 —— 面板刷新出新的回复数，'
++ '点进去还是最早那几页。现在评论缓存 <b>60 秒</b>过期，而且帖子的回复数跟上次不一样（说明有新回复）'
++ '就整篇丢掉重新拉。</li>'
++ '<li>回复弹窗的信息行多了个 <b>「刷新」</b>，随时可以手动重拉一次。</li>'
++ '<li>回复是<b>按楼层正序</b>排的（跟论坛一致），新回复在后面，页数多的话要往下翻。</li>'
++ '</ul>'
 
 + '<h5>v1.0.5 · 2026-10-08</h5>'
 + '<ul>'
@@ -1464,6 +1499,18 @@ function richNodes(html){
         out.push([emo ? "em" : "img", s]);
         continue;
       }
+      // 视频: <video poster="封面"><source src="*.mp4"></video>
+      // 以前这里只认 img, video 会被 walk 进去 —— 结果 <source> 没内容、
+      // 只剩标签里那句"您的设备不支持视频标签。"被当成正文显示, 视频整个不见。
+      // 取 poster + 第一个 source 的 src, 自己重新拼一个 <video>, 并且**不要再往里走**。
+      if (tag === "video"){
+        const so = n.querySelector("source");
+        const s  = (so && so.getAttribute("src")) || n.getAttribute("src") || "";
+        if (!/^https?:\/\//i.test(s)) continue;
+        const po = n.getAttribute("poster") || "";
+        out.push(["v", s, /^https?:\/\//i.test(po) ? po : ""]);
+        continue;
+      }
       walk(n);
     }
   })(doc.body);
@@ -1473,6 +1520,10 @@ const richHtml = (nodes) => nodes.map(n =>
     n[0] === "t"  ? esc(n[1])
   : n[0] === "br" ? "<br>"
   : n[0] === "em" ? '<img class="em" loading="lazy" src="' + esc(n[1]) + '" alt="">'
+  // 视频: preload="none" 别一进页面就去拖 mp4(一个帖好几兆); 点了才加载
+  : n[0] === "v"  ? '<video controls playsinline preload="none"'
+                    + (n[2] ? ' poster="' + esc(n[2]) + '"' : "") + '>'
+                    + '<source src="' + esc(n[1]) + '" type="video/mp4"></video>'
   : '<img loading="lazy" src="' + esc(n[1]) + '">').join("");
 
 async function openFull(id){
@@ -1519,21 +1570,31 @@ async function openFull(id){
 // 开弹窗时不请求, 等用户点「回复 N」或「查看 N 条回复」才加载第一页(懒加载),
 // 之后滚到底自动接着翻。
 let cmtPage = 0, cmtPages = 1, cmtBusy = false;
-const cmtCache = new Map();       // host|tid|page -> {list,total,tp}
+const cmtCache = new Map();       // host|tid|page -> {list,total,tp,ts,cc}
+// 评论缓存活 60 秒。以前没有过期一说, 第一次看过之后永远命中缓存 ——
+// 面板刷新出新的回复数, 点进去还是最早那几页, 新回复怎么都刷不出来。
+const CMT_TTL = 60000;
+const cmtKey = (tid, page) => $("host").value + "|" + tid + "|" + page;
+// 丢掉这一篇的所有页(换端、回帖数变了、手动刷新时用)
+function cmtDrop(tid){
+  const pre = $("host").value + "|" + tid + "|";
+  for (const k of [...cmtCache.keys()]) if (k.indexOf(pre) === 0) cmtCache.delete(k);
+}
 function cmtReset(tid){
   cmtPage = 0; cmtPages = 1; cmtBusy = false;
 }
 
-async function loadCmt(tid, page){
+async function loadCmt(tid, page, cc){
   const host = $("host").value;
-  const key = host + "|" + tid + "|" + page;
-  if (cmtCache.has(key)) return cmtCache.get(key);
+  const key = cmtKey(tid, page);
+  const hit = cmtCache.get(key);
+  if (hit && Date.now() - hit.ts < CMT_TTL) return hit;
   let d = null;
   try{
     const r = await getJSON(host + "/mag/circle/v1/Forum/commentList?tid="
               + encodeURIComponent(tid) + "&p=" + page + "&step=20");
     d = { list: r.list || [], total: Number(r.count) || 0,
-          tp: Number(r.total_page) || 1 };
+          tp: Number(r.total_page) || 1, ts: Date.now(), cc: cc };
   }catch(e){}                     // 取不到就在评论区提示, 不影响正文
   cmtCache.set(key, d);
   return d;
@@ -1576,7 +1637,7 @@ function cmtHtml(c){
     + pics + '</div></div>';
 }
 
-async function showCmt(page){
+async function showCmt(page, cc){
   const box = $("cmtBox");
   if (!box) return;                          // 弹窗没开
   const tid = box.dataset.tid || "";
@@ -1585,7 +1646,7 @@ async function showCmt(page){
   cmtBusy = true;
   const btn = box.querySelector(".more");
   if (btn){ btn.disabled = true; btn.textContent = "加载中…"; }
-  const d = await loadCmt(tid, page);
+  const d = await loadCmt(tid, page, cc);
   cmtBusy = false;
   const cur = $("cmtBox");
   // 请求期间弹窗可能已经被关掉、或者换成另一篇了 —— 那就别往回塞
@@ -1618,15 +1679,20 @@ async function openCmt(id){
   const tid = String(p.id);
   cmtReset(tid);
   const nCmt = num(p.comment_count);
+  // 这一篇已经看过、但回复数跟上次不一样(说明有新回复) -> 把缓存整篇丢掉重新拉。
+  // 缓存本身也有 60 秒 TTL, 这里额外比一次回复数, 是为了"刚看过, 转眼就有新回复"也能刷出来。
+  const first = cmtCache.get(cmtKey(tid, 1));
+  if (first && (first.cc !== nCmt || Date.now() - first.ts >= CMT_TTL)) cmtDrop(tid);
   const meta = [esc(p.user_name || "匿名"), esc(fmtAgo(num(p.publish_time))),
                 "阅读 " + num(p.click)].filter(Boolean).join(" · ");
   showDoc('<h4>' + esc(String(p.title || "").trim()) + '</h4>'
-    + '<div class="fm">' + meta + (meta ? " · " : "") + "回复 " + nCmt + '</div>'
+    + '<div class="fm">' + meta + (meta ? " · " : "") + "回复 " + nCmt
+    + ' · <b class="rf" data-rf="' + esc(tid) + '" title="重新拉一次回复">刷新</b></div>'
     + '<div class="cmb" id="cmtBox" data-tid="' + esc(tid) + '">'
     +   '<button class="more" disabled>加载中…</button></div>');
   pop.classList.add("pic");
   bindCmtScroll();
-  await showCmt(1);
+  await showCmt(1, nCmt);
 }
 // 滚到底自动翻下一页(只在已经加载过第一页之后才生效)
 function bindCmtScroll(){
@@ -1952,8 +2018,18 @@ function openLb(list, idx){
 }
 function showLb(){
   const n = lbList.length;
-  $("lbImg").style.visibility = "";      // 清掉上一张加载失败留下的隐藏
-  $("lbImg").src = lbList[lbIdx] || "";
+  const u = lbList[lbIdx] || "";
+  const vd = isVideo(u);
+  const im = $("lbImg"), vo = $("lbVideo");
+  im.hidden = vd; vo.hidden = !vd;
+  if (vd){
+    vo.src = u;                    // preload=metadata, 只取封面和时长, 点了才下数据
+    vo.style.visibility = "";
+  }else{
+    vo.pause(); vo.removeAttribute("src"); vo.load();   // 别让上一个视频在后台接着下
+    im.style.visibility = "";      // 清掉上一张加载失败留下的隐藏
+    im.src = u;
+  }
   $("lbCount").textContent = (lbIdx + 1) + " / " + n;
   $("lbCount").style.display = n > 1 ? "" : "none";
   $("lbPrev").hidden = $("lbNext").hidden = n < 2;   // 单图不给箭头
@@ -1965,7 +2041,12 @@ function lbStep(d){
 }
 $("lbPrev").onclick = () => lbStep(-1);
 $("lbNext").onclick = () => lbStep(1);
-const lbOff = () => $("lb").classList.remove("on");
+// 关灯箱必须把视频停掉并卸掉 src —— 否则声音/流量在后台继续跑
+const lbOff = () => {
+  const vo = $("lbVideo");
+  vo.pause(); vo.removeAttribute("src"); vo.load();
+  $("lb").classList.remove("on");
+};
 // 点箭头/计数不算"点背景", 只有点空处或叉号才关
 $("lb").onclick = (e) => { if (e.target === $("lb") || e.target.closest("#lbClose")) lbOff(); };
 pop.addEventListener("click", (e) => {
@@ -1996,6 +2077,19 @@ pop.addEventListener("click", (e) => {
   // meta 行里的「回复 N」/ 底部「查看 N 条回复」: 带 data-cmt 的都是换到评论弹窗
   const toCmt = e.target.closest("[data-cmt]");
   if (toCmt){ openCmt(String(toCmt.dataset.cmt || "")); return; }
+  // 评论弹窗 meta 行里的「刷新」: 丢掉这篇的缓存重新拉第一页
+  const rf = e.target.closest(".rf");
+  if (rf){
+    const rt = String(rf.dataset.rf || "");
+    if (rt){
+      cmtDrop(rt); cmtReset(rt);
+      const box = $("cmtBox");
+      if (box) box.innerHTML = '<button class="more" disabled>加载中…</button>';
+      const q = ALL.find(x => String(x.id) === rt);
+      showCmt(1, q ? num(q.comment_count) : undefined);
+    }
+    return;
+  }
   // 评论弹窗里的「加载更多回复」: 按钮上带着要加载的页码
   const more = e.target.closest(".cmb .more");
   if (more){ showCmt(Number(more.dataset.page) || 1); return; }
