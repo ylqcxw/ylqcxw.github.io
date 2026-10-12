@@ -47,6 +47,16 @@
   .kpi .lb{color:var(--sub);font-size:12px;margin-bottom:4px}
   .kpi .vl{font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
   .kpi .ex{color:var(--sub);font-size:11px;margin-top:2px}
+  /* KPI 卡标签后面的小 ⓘ: 一个 14px 的圆圈, 不抢数字本身。
+     圆圈用 border-radius 画(不用 ⓘ 字符 —— 字符的字形位置和字体强相关, 容易偏心),
+     ::after 撑出点击热区, 免得手机上 14px 太难点。 */
+  .kpi .kn{position:relative;display:inline-flex;align-items:center;justify-content:center;
+    margin-left:5px;width:14px;height:14px;padding:0;vertical-align:1px;
+    border:1px solid var(--line);border-radius:50%;background:#fff;
+    font:inherit;font-size:9px;font-weight:700;line-height:1;color:var(--sub);
+    cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .kpi .kn::after{content:"";position:absolute;inset:-7px}
+  .kpi .kn:hover{background:#eff6ff;border-color:#bfdbfe;color:var(--blue)}
 
   .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
   @media(max-width:900px){.row{grid-template-columns:1fr}}
@@ -540,7 +550,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.6</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.7</span><span class="dot">·</span>
   <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
@@ -590,6 +600,7 @@ const AUTO_STEPS = [15000, 60000, 300000, 0];   // 自动档位: 15s -> 60s -> 5
 
 let ALL = [];                // 库内全量(倒序)
 let VIEW = [];               // 当前时间窗口
+let coverH = 0;              // 库里实际覆盖了多少小时(见 applyWindow)
 let page = 1;
 let busy = false;
 // 默认 15 秒刷一轮新帖(只翻前几页, 很轻); 点"自动"切 60s -> 5min -> 关
@@ -799,7 +810,10 @@ async function collect(deep = true){
   // 翻到"最老一条早于 24 小时前"就停 —— 一天约 1600~3000 帖, step=200 大概 8~15 页
   const goalLo = Date.now()/1000 - GOAL_H*3600;
   // 快刷翻 1~FRESH_PAGE(新帖都在最前面); 补全从 FRESH_PAGE+1 接上, 不重复翻前几页
-  const p0 = deep ? FRESH_PAGE + 1 : 1;
+  // 库是空的(刚清过 / 第一次用)时必须从第 1 页起 —— "跳过前 FRESH_PAGE 页"是按
+  // "快刷已经采过前几页"推出来的, 库一空这个前提就不成立, 从中间开始会把最新的
+  // 几百条整个漏掉, 而且补全只看"够不够 24 小时", 永远不会回头补前几页。
+  const p0 = (deep && ALL.length) ? FRESH_PAGE + 1 : 1;
   const maxPage = deep ? MAX_PAGE : FRESH_PAGE;
 
   let fresh = 0;
@@ -818,8 +832,15 @@ async function collect(deep = true){
     try{
       list = (await getJSON(url)).list || [];
     }catch(e){
-      if (p === p0) throw e;        // 起始页都失败 -> 整体失败, 交给外层提示
-      return null;                  // 中途失败就算了, 已采的照样入库
+      // 抖一下就断一页太可惜: 一页 200 条, 中途断一次整个 24 小时就铺不满,
+      // 库里只剩整页 × 页数(1800 / 2000…)。隔半秒重试一次再决定放弃。
+      try{
+        await new Promise(r => setTimeout(r, 600));
+        list = (await getJSON(url)).list || [];
+      }catch(e2){
+        if (p === p0) throw e2;       // 起始页都失败 -> 整体失败, 交给外层提示
+        return null;                  // 中途失败就算了, 已采的照样入库
+      }
     }
     if (!list.length) return null;  // 接口到底
     // 每页采完立刻入库 + 渲染 —— 翻满 24 小时要走十几页, 不能让用户干等
@@ -895,9 +916,12 @@ async function collect(deep = true){
     const dropped = await pruneOld();
     render();
     $("dot").className = "dot";
+    const full = coverH >= 23.5;
     $("state").textContent = (deep ? "就绪" : "已刷新")
-      + " · 24 小时内 " + VIEW.length.toLocaleString()
-      + " 帖 · 本次新增 " + fresh + (dropped ? " · 清理过期 " + dropped : "")
+      + " · " + (full ? "24 小时内 " : "近 " + coverH.toFixed(1) + " 小时内 ")
+      + VIEW.length.toLocaleString() + " 帖 · 本次新增 " + fresh
+      + (dropped ? " · 清理过期 " + dropped : "")
+      + (full ? "" : " · 只回溯到 " + coverH.toFixed(1) + " 小时，没铺满")
       + " · 来源 " + feedName;   // 说清楚是哪一端采的(切了备用端时尤其必要)
     $("err").style.display = "none";
   }catch(e){
@@ -929,8 +953,15 @@ function curPosts(){ return ALL; }
 function applyWindow(){
   const lo = Date.now()/1000 - WIN_H*3600;
   VIEW = curPosts().filter(p => p.publish_time >= lo);
-  $("tsTag").textContent = "最近 24 小时";
-  $("listTag").textContent = "24 小时";
+  // 库里最老那条的年龄 = 实际铺了多久。采集是整页(200 条)往下翻、够 24 小时才停,
+  // 中途断一页(请求失败或接口到底)就只翻到那儿 —— 这时 VIEW 里是"库里全部",
+  // 条数正好是 200 的整数倍(1800 / 2000…), 看着像被截断了。
+  // 数字是真的, 但窗口没铺满, 不能照常说 24 小时。
+  const old = VIEW.length ? VIEW[VIEW.length - 1].publish_time : 0;  // VIEW 倒序, 最后一条最老
+  coverH = old ? (Date.now()/1000 - old) / 3600 : 0;
+  const full = coverH >= 23.5;                    // 差半小时以内算铺满(一页 200 条的粒度)
+  $("tsTag").textContent  = full ? "最近 24 小时" : ("最近 " + coverH.toFixed(1) + " 小时");
+  $("listTag").textContent = full ? "24 小时" : (coverH.toFixed(1) + " 小时");
 }
 
 // 库只保留 KEEP_H 小时, 超了自动删 —— 库就不会越攒越大
@@ -969,13 +1000,20 @@ function renderKPI(){
     users = us.size;
   }
   // 只留这三个: 总阅读 / 数据跨度 / 板块数 用户不要, 已删
+  // 没铺满 24 小时时把实际跨度写出来 —— 否则用户看 1800 / 2000 这种整页数会以为漏了数据
+  const full = coverH >= 23.5;
   const cards = [
-    ["24 小时帖子", n.toLocaleString(), "最近一整天，不随筛选变"],
+    [full ? "24 小时帖子" : ("近 " + coverH.toFixed(1) + " 小时帖子"), n.toLocaleString(),
+     full ? "最近一整天，不随筛选变"
+          : "只回溯到 " + coverH.toFixed(1) + " 小时前，没铺满 24 小时", 1],
     ["今日帖子", today.toLocaleString(), "今天零点起算"],
     ["活跃用户", users.toLocaleString(), "去重后"],
   ];
-  $("kpis").innerHTML = cards.map(([lb,vl,ex]) =>
-    '<div class="kpi"><div class="lb">'+lb+'</div><div class="vl">'+vl+'</div>'
+  $("kpis").innerHTML = cards.map(([lb,vl,ex,note]) =>
+    '<div class="kpi"><div class="lb">'+lb
+    // 只有第一张卡带「数字说明」: 跟在标签后面的小 ⓘ, 不抢数字本身
+    + (note ? '<button class="kn" type="button" title="数字说明" aria-label="数字说明">i</button>' : '')
+    + '</div><div class="vl">'+vl+'</div>'
     + '<div class="ex">'+ex+'</div></div>').join("");
 }
 
@@ -1132,7 +1170,7 @@ async function renderDbStat(){
   const earliest = ALL.length ? ALL[ALL.length-1].publish_time : 0;
   const ua = navigator.userAgent || "";
   $("dbStat").innerHTML =
-      '<span>库内帖子</span><span>' + ALL.length.toLocaleString() + ' 条（两端共享，超 ' + KEEP_H + ' 小时自动清）</span>'
+      '<span>库内帖子</span><span>' + ALL.length.toLocaleString() + ' 条（超 ' + KEEP_H + ' 小时自动清）</span>'
     + '<span>最早一条</span><span>' + (earliest ? fmtClock(earliest) + "（" + ((Date.now()/1000 - earliest)/3600).toFixed(1) + " 小时前）" : "-") + '</span>'
     + '<span>估算占用</span><span>' + _szMB.toFixed(1) + ' MB</span>'
     + '<span>存储状态</span><span>' + (dbOk ? "IndexedDB 正常" : "不可用（内存模式）") + '</span>'
@@ -1255,7 +1293,21 @@ const PRIVACY_HTML =
 // 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.6 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.7 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.7 · 2026-10-12</h5>'
++ '<ul>'
++ '<li><b>没采满 24 小时时会说清楚</b>。采集是<b>整页（200 条）往下翻</b>、够 24 小时才停 ——'
++ '中途断一页（请求失败）就只翻到那儿，库里正好是 200 的整数倍（1800 / 2000…），'
++ '看着像被截断了。现在状态栏、KPI、列表标签都会改成<b>实际回溯到的小时数</b>'
++ '（例如「近 7.2 小时内 800 帖 · 只回溯到 7.2 小时，没铺满」）。</li>'
++ '<li>翻页失败<b>会自动重试一次</b>（隔 0.6 秒），减少因为抖一下就少采一整页的情况。</li>'
++ '<li>修复：<b>清空本地库后采不全</b>。补全的起点是第 4 页（按「快刷已经采过前 3 页」推出来的），'
++ '库一空这个前提就不成立 —— 从中间开始采，最新的几百条会整个漏掉，而且补全只看'
++ '「够不够 24 小时」，永远不会回头补前几页。现在库空时从第 1 页起。</li>'
++ '<li>清空本地库后<b>自动重采一遍</b>（以前只清不采，之后只剩每 15 秒翻前 3 页的快刷，'
++ '库会一直停在 600 条补不满 24 小时）。</li>'
++ '</ul>'
 
 + '<h5>v1.0.6 · 2026-10-12</h5>'
 + '<ul>'
@@ -1358,6 +1410,9 @@ const HELP_HTML =
 + '<li>点<b>标题</b>跳原站（电脑跳网页版，手机跳 APP 页面）；点<b>用户名</b>开资料卡；'
 + '点<b>「回复 N」</b>看评论。</li>'
 + '<li>发帖密度图<b>点柱子</b>可以看某个时段的帖子。</li>'
++ '<li>帖子数是<b>你本地库里采集到的条数</b>：采集时抓到的就存下来，之后在原站被删掉的'
++ '不会从库里移除（满 48 小时自动清）。所以<b>这个数字包含已删除的帖子</b>，'
++ '而且每个人打开的时间、采集进度不同，看到的条数<b>不一样是正常的</b>。</li>'
 + '</ul>'
 
 + '<h5>搜用户 / 查资料</h5>'
@@ -1382,6 +1437,25 @@ const HELP_HTML =
 + '需要时再导入回来。</li>'
 + '<li>微信 / QQ 内置浏览器不支持直接下载文件，需点右上角「···」→ 在浏览器打开，再导出。</li>'
 + '</ul>';
+
+// KPI 卡里「数字说明」按钮弹的内容：帖子数到底怎么来的、为什么每个人看到的不一样。
+// 单独成篇而不是写在卡片下面 —— 卡片那点高度放不下, 也容易被人当成"又一行说明"直接略过。
+const NUMNOTE_HTML =
+  '<h4>帖子数是怎么来的</h4>'
++ '<p class="dim">这是你自己的浏览器采集到的条数，不是全站实时统计</p>'
++ '<ul>'
++ '<li>打开页面才开始采集，边翻边存进本地库。所以你看到的是<b>「你采到了多少」</b>，'
++ '跟别人采到多少没关系。</li>'
++ '<li><b>包含已被删除的帖子</b>：采集时抓到就存下来了，之后在原站被删掉，本地库不会跟着删'
++ '（满 48 小时才自动清）。</li>'
++ '<li><b>每个人数字不一样是正常的</b>：打开的时间不同、采集进度不同，期间又不断有新帖和删帖，'
++ '对不上很正常 —— 不是漏数据。</li>'
++ '<li>没做「已删除检测」是因为<b>接口分不出来</b>：帖子被删后详情接口仍返回 200，'
++ '但提示语跟「正在审核」是同一句，写「已删除」会误伤审核中的帖。</li>'
++ '<li>数字是整页（每页 200 条）往下翻、够 24 小时才停的，所以库里总数常常是 200 的整数倍；'
++ '没铺满时卡片标题会写成<b>实际回溯的小时数</b>。</li>'
++ '</ul>'
++ '<p class="dim">库里最多留 48 小时，超了自动清，旧数据不会一直堆着。</p>';
 
 function showDoc(html){
   pop.classList.add("wide");
@@ -1978,6 +2052,8 @@ document.addEventListener("click", (e) => {
   // 刚打开的资料卡当场被关掉。必须用 composedPath 看**原始**路径才准。
   const path = e.composedPath ? e.composedPath() : [];
   if (path.indexOf(pop) >= 0 || e.target.closest("#pop")) return;
+  // KPI 卡里的「数字说明」也是自己开弹窗(跟 .fb / .rc 同一个坑: 别刚开就被关掉)
+  if (e.target.closest(".kn")){ showDoc(NUMNOTE_HTML); return; }
   // 页脚"隐私政策": 它自己会开弹窗, 冒泡到这里再被下面的"点空白就关"关掉, 等于点了没反应
   if (e.target.closest(".foot")) return;
   // 同理, "全文"按钮自己开弹窗, 别刚开就被关掉
@@ -2194,7 +2270,14 @@ $("btnWipe").onclick = async () => {
   ALL = []; VIEW = []; page = 1;
   avatarCache.clear(); avatarFail.clear(); homeCache.clear(); infoCache.clear(); cmtCache.clear();
   render();
-  $("state").textContent = "已清空";
+  // 清完库之后只剩定时快刷在跑 —— 它每轮只翻前 FRESH_PAGE 页(600 条), 24 小时
+  // 永远补不全, 库会一直停在 3 页的量。清空就是为了重来, 直接补一次完整的。
+  if (busy){
+    $("state").textContent = "已清空 · 有采集正在跑，等它结束后再点「采集」补满 24 小时";
+  }else{
+    $("state").textContent = "已清空，正在重新采集…";
+    await collect(true);
+  }
 };
 
 setInterval(() => {
