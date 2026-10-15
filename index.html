@@ -550,7 +550,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.7</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.8</span><span class="dot">·</span>
   <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
@@ -841,6 +841,14 @@ async function collect(deep = true){
         if (p === p0) throw e2;       // 起始页都失败 -> 整体失败, 交给外层提示
         return null;                  // 中途失败就算了, 已采的照样入库
       }
+    }
+    // 接口偶发返回**空列表**(HTTP 200、list 为 []), 不是真到底 —— 实测连续翻页时
+    // 十来页里会遇到一两次, 单独重请求同一页又能拿到 200 条。以前直接当"到底"退出,
+    // 于是只采 4~5 页(800~1000 条), 24 小时永远铺不满, 数字也就忽高忽低。
+    // 空的时候重试一次再判定, 重试仍空才是真的到底。
+    if (!list.length){
+      await new Promise(r => setTimeout(r, 600));
+      try{ list = (await getJSON(url)).list || []; }catch(e){}
     }
     if (!list.length) return null;  // 接口到底
     // 每页采完立刻入库 + 渲染 —— 翻满 24 小时要走十几页, 不能让用户干等
@@ -1293,7 +1301,15 @@ const PRIVACY_HTML =
 // 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.7 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.8 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.8 · 2026-10-15</h5>'
++ '<ul>'
++ '<li>修复：<b>翻页时接口偶发返回空列表</b>，会让 24 小时采不满。接口有时回 HTTP 200 但'
++ '列表是空的（连续翻十几页会遇到一两次，单独重请求同一页又正常）。以前直接当成'
++ '「翻到底了」就退出，于是只采 4~5 页（800~1000 条），帖子数也跟着忽高忽低。'
++ '现在空列表会<b>隔 0.6 秒重试一次</b>，仍空才算到底。</li>'
++ '</ul>'
 
 + '<h5>v1.0.7 · 2026-10-12</h5>'
 + '<ul>'
