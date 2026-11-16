@@ -550,7 +550,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.8</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.9</span><span class="dot">·</span>
   <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
@@ -614,6 +614,9 @@ const refresh = () => collect(false);
 const canAuto = () => page === 1;
 let pendingFresh = false;    // 补全过程中攒下的刷新请求, 由补全在翻页间隙插空执行
 let lastFreshAt = 0;         // 上次快刷时刻, 用来限流(补全途中别刷太勤)
+// 本次补全里插空快刷过几次。第一次给 FRESH_PAGE 页(把补全开头那几秒攒下的新帖一次接齐),
+// 之后每次只给 1 页 —— 补全本身就在往下翻十几页, 每轮再刷 3 页既重复又拖慢补全。
+let burstUsed = 0;
 let dbOk = true;
 
 const avatarCache = new Map();
@@ -815,6 +818,7 @@ async function collect(deep = true){
   // 几百条整个漏掉, 而且补全只看"够不够 24 小时", 永远不会回头补前几页。
   const p0 = (deep && ALL.length) ? FRESH_PAGE + 1 : 1;
   const maxPage = deep ? MAX_PAGE : FRESH_PAGE;
+  if (deep) burstUsed = 0;   // 新一轮补全重新计数: 第一次插空快刷给满 FRESH_PAGE 页
 
   let fresh = 0;
   // 合并进 ALL 并保持倒序
@@ -868,9 +872,10 @@ async function collect(deep = true){
   };
 
   // 快刷前几页。补全途中也会插空调它 —— 新帖只看前几页就够
-  const burst = async () => {
+  // pages: 默认 FRESH_PAGE 页(平时的定时快刷); 补全途中第一次也是 FRESH_PAGE, 之后传 1
+  const burst = async (pages = FRESH_PAGE) => {
     lastFreshAt = Date.now();
-    for (let q = 1; q <= FRESH_PAGE; q++){
+    for (let q = 1; q <= pages; q++){
       // 补全途中插空刷时状态栏会僵在"第 N 页"十几秒, 看着像卡住 —— 明确说是去刷新帖了
       $("state").textContent = "刷新中 · 第 " + q + " 页";
       const r = await pull(q);
@@ -907,7 +912,11 @@ async function collect(deep = true){
           // 到点就插一轮快刷, 刷完再接着往下补
           if (deep && pendingFresh && page === 1){
             pendingFresh = false;
-            await burst();
+            // 补全途中插空刷: 第一次 FRESH_PAGE 页(接齐开头攒下的新帖), 之后每次 1 页。
+            // 补全本身正往下翻十几页, 每轮再刷 3 页 = 同一批帖翻两遍, 拖慢补全;
+            // 15 秒最多几十条新帖, 1 页(200 条)足够兜住。
+            await burst(burstUsed ? 1 : FRESH_PAGE);
+            burstUsed++;
           }
           await new Promise(r2 => setTimeout(r2, 150));
         }
@@ -1301,7 +1310,15 @@ const PRIVACY_HTML =
 // 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.8 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.9 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.9 · 2026-11-12</h5>'
++ '<ul>'
++ '<li>提速：<b>补全 24 小时途中插空快刷，改为第一次 3 页、之后每次只 1 页</b>。'
++ '好几天没打开时补全要走十几页几十秒，其间每 15 秒还插一轮 3 页快刷 —— '
++ '快刷那几页和补全往下翻的是同一批接口，等于重复劳动，拖慢补全。'
++ '15 秒内的new帖几十条，1 页(200 条)足够兜住。补全结束后恢复正常 3 页。</li>'
++ '</ul>'
 
 + '<h5>v1.0.8 · 2026-10-15</h5>'
 + '<ul>'
