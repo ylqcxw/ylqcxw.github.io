@@ -550,7 +550,7 @@
 <div id="msk"></div>
 <div id="pop"></div>
 <footer class="foot">
-  <div class="fl"><span class="ver">v1.0.10</span><span class="dot">·</span>
+  <div class="fl"><span class="ver">v1.0.12</span><span class="dot">·</span>
   <button class="lk" id="btnHelp">使用说明</button><span class="dot">·</span>
   <button class="lk" id="btnPrivacy">隐私政策</button><span class="dot">·</span>
   <button class="lk" id="btnChangelog">版本历史</button></div>
@@ -583,8 +583,9 @@
 "use strict";
 
 const FID_NAMES = {"169":"羊毛交流","282":"羊毛专区","285":"老哥生活"};
-// 实测: step 越大反而拿得越少(step=500 时第 4 页就空), 200 是稳定值
-const STEP = 200;
+// 实测: 服务器 2026-11-17 起把上限降到约 100 —— step>=150 全部返回空列表(code 仍是 100),
+// step=100 稳定；step 再大反而拿得越少。所以固定用 100。
+const STEP = 100;
 const PAGE_SIZE = 20;
 const DB_NAME = "kanong-direct";
 const DB_VER = 1;
@@ -594,7 +595,7 @@ const STAT_MAX = 60000;      // 统计时最多读多少条, 防卡
 const WIN_H   = 24;          // 统计窗口(小时), 固定
 const GOAL_H  = 24;          // 采集目标: 回溯到 24 小时前就停
 const KEEP_H  = 48;          // 库里最多留这么久, 超了自动删(库恒定几百 KB)
-const MAX_PAGE = 40;         // 单次采集最多翻多少页, 防失控
+const MAX_PAGE = 60;         // 单次采集最多翻多少页, 防失控(step=100 时要翻更多页才够 24 小时)
 const FRESH_PAGE = 3;        // 快刷只翻前几页: 新帖都在最前面, 不用往下找
 const AUTO_STEPS = [15000, 60000, 300000, 0];   // 自动档位: 15s -> 60s -> 5min -> 关
 
@@ -786,10 +787,24 @@ function dbClear(){
 // 别去硬编码某个 UA: 那既写不进去, 也会让所有人的请求长得一模一样。
 // 不向卡农服务器暴露本站地址: 实测该接口不校验 referer, 空值照常返回数据。
 // Referer 是浏览器自动加的受保护头, JS 写不进 headers, 只能用 referrerPolicy 关掉。
+// 请求超时: 服务器卡住时 fetch 会一直挂起, 没有超时的话 collect() 会永远停在
+// await 上, busy 锁死、finally 走不到 —— 服务器恢复了页面也再刷不动(实测)。
+// 超时 abort 后抛错, collect 的 catch/finally 正常收尾, 下一轮定时器自动重来。
+const REQ_TIMEOUT = 12000;
 async function getJSON(url){
-  const r = await fetch(url, {headers:{accept:"application/json"}, cache:"no-store", referrerPolicy:"no-referrer"});
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return r.json();
+  const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), REQ_TIMEOUT) : null;
+  try{
+    const r = await fetch(url, {headers:{accept:"application/json"}, cache:"no-store",
+      referrerPolicy:"no-referrer", signal:ctl ? ctl.signal : undefined});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return await r.json();
+  }catch(e){
+    if (e && e.name === "AbortError") throw new Error("请求超时（" + (REQ_TIMEOUT/1000) + " 秒）");
+    throw e;
+  }finally{
+    if (timer) clearTimeout(timer);
+  }
 }
 
 // deep=true  补全 24 小时(翻到够老为止, 十几页)
@@ -812,7 +827,7 @@ async function collect(deep = true){
   // pull() 里读的就是这两个变量 —— 换成备用端时只要重新赋值, 不用重建闭包
   let host = feeds[0].host, cat = feeds[0].cat, feedName = feeds[0].name;
   const seen = new Set(curPosts().map(p => p.id));
-  // 翻到"最老一条早于 24 小时前"就停 —— 一天约 1600~3000 帖, step=200 大概 8~15 页
+  // 翻到"最老一条早于 24 小时前"就停 —— 一天约 1600~3000 帖, step=100 大概 16~30 页
   const goalLo = Date.now()/1000 - GOAL_H*3600;
   // 快刷翻 1~FRESH_PAGE(新帖都在最前面); 补全从 FRESH_PAGE+1 接上, 不重复翻前几页
   // 库是空的(刚清过 / 第一次用)时必须从第 1 页起 —— "跳过前 FRESH_PAGE 页"是按
@@ -838,8 +853,8 @@ async function collect(deep = true){
     try{
       list = (await getJSON(url)).list || [];
     }catch(e){
-      // 抖一下就断一页太可惜: 一页 200 条, 中途断一次整个 24 小时就铺不满,
-      // 库里只剩整页 × 页数(1800 / 2000…)。隔半秒重试一次再决定放弃。
+      // 抖一下就断一页太可惜: 一页 100 条, 中途断一次整个 24 小时就铺不满,
+      // 库里只剩整页 × 页数(1700 / 1800…)。隔半秒重试一次再决定放弃。
       try{
         await new Promise(r => setTimeout(r, 600));
         list = (await getJSON(url)).list || [];
@@ -849,7 +864,7 @@ async function collect(deep = true){
       }
     }
     // 接口偶发返回**空列表**(HTTP 200、list 为 []), 不是真到底 —— 实测连续翻页时
-    // 十来页里会遇到一两次, 单独重请求同一页又能拿到 200 条。以前直接当"到底"退出,
+    // 十来页里会遇到一两次, 单独重请求同一页又能拿到 100 条。以前直接当"到底"退出,
     // 于是只采 4~5 页(800~1000 条), 24 小时永远铺不满, 数字也就忽高忽低。
     // 空的时候重试一次再判定, 重试仍空才是真的到底。
     if (!list.length){
@@ -916,7 +931,7 @@ async function collect(deep = true){
             pendingFresh = false;
             // 补全途中插空刷: 第一次 FRESH_PAGE 页(接齐开头攒下的新帖), 之后每次 1 页。
             // 补全本身正往下翻十几页, 每轮再刷 3 页 = 同一批帖翻两遍, 拖慢补全;
-            // 15 秒最多几十条新帖, 1 页(200 条)足够兜住。
+            // 15 秒最多几十条新帖, 1 页(100 条)足够兜住。
             await burst(burstUsed ? 1 : FRESH_PAGE);
             burstUsed++;
           }
@@ -967,18 +982,18 @@ async function collect(deep = true){
 // 所以库必须共享: 按端过滤会让另一端攒的数据"凭空消失"(改过一次, 别再改回去)。
 // 切端只是换个 cat_id 采集, 采到的都进同一个库, 按 id 去重。
 function curPosts(){ return ALL; }
-// 窗口固定 24 小时, 不提供切换 —— 接口最多回溯约 5 天(=50 页 × step200, 约 3 分钟),
+// 窗口固定 24 小时, 不提供切换 —— 接口最多回溯约 5 天(=50 页 × step100, 约 3 分钟),
 // 7 天拿不到, 与其给个点不动的按钮不如不做
 function applyWindow(){
   const lo = Date.now()/1000 - WIN_H*3600;
   VIEW = curPosts().filter(p => p.publish_time >= lo);
-  // 库里最老那条的年龄 = 实际铺了多久。采集是整页(200 条)往下翻、够 24 小时才停,
+  // 库里最老那条的年龄 = 实际铺了多久。采集是整页(100 条)往下翻、够 24 小时才停,
   // 中途断一页(请求失败或接口到底)就只翻到那儿 —— 这时 VIEW 里是"库里全部",
-  // 条数正好是 200 的整数倍(1800 / 2000…), 看着像被截断了。
+  // 条数正好是 100 的整数倍(1900 / 2000…), 看着像被截断了。
   // 数字是真的, 但窗口没铺满, 不能照常说 24 小时。
   const old = VIEW.length ? VIEW[VIEW.length - 1].publish_time : 0;  // VIEW 倒序, 最后一条最老
   coverH = old ? (Date.now()/1000 - old) / 3600 : 0;
-  const full = coverH >= 23.5;                    // 差半小时以内算铺满(一页 200 条的粒度)
+  const full = coverH >= 23.5;                    // 差半小时以内算铺满(一页 100 条的粒度)
   $("tsTag").textContent  = full ? "最近 24 小时" : ("最近 " + coverH.toFixed(1) + " 小时");
   $("listTag").textContent = full ? "24 小时" : (coverH.toFixed(1) + " 小时");
 }
@@ -1019,7 +1034,7 @@ function renderKPI(){
     users = us.size;
   }
   // 只留这三个: 总阅读 / 数据跨度 / 板块数 用户不要, 已删
-  // 没铺满 24 小时时把实际跨度写出来 —— 否则用户看 1800 / 2000 这种整页数会以为漏了数据
+  // 没铺满 24 小时时把实际跨度写出来 —— 否则用户看 1900 / 2000 这种整页数会以为漏了数据
   const full = coverH >= 23.5;
   const cards = [
     [full ? "24 小时帖子" : ("近 " + coverH.toFixed(1) + " 小时帖子"), n.toLocaleString(),
@@ -1312,7 +1327,17 @@ const PRIVACY_HTML =
 // 页脚的 v1.0.5 是写死在 HTML 里的(class="ver", 页脚那行), 升版本时三处一起动(版本号 / 这里 / CHANGELOG.md)。
 const CHANGELOG_HTML =
   '<h4>版本历史</h4>'
-+ '<p class="dim">当前 v1.0.10 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
++ '<p class="dim">当前 v1.0.12 · 修补与小功能递增最后一位，功能与界面级改动递增中间位</p>'
+
++ '<h5>v1.0.12 · 2026-11-17</h5>'
++ '<ul>'
++ '<li>紧急修复2个已知问题。</li>'
++ '</ul>'
+
++ '<h5>v1.0.11 · 2026-11-17</h5>'
++ '<ul>'
++ '<li>修复已知问题。</li>'
++ '</ul>'
 
 + '<h5>v1.0.10 · 2026-11-17</h5>'
 + '<ul>'
@@ -1433,7 +1458,7 @@ const NUMNOTE_HTML =
 + '对不上很正常 —— 不是漏数据。</li>'
 + '<li>没做「已删除检测」是因为<b>接口分不出来</b>：帖子被删后详情接口仍返回 200，'
 + '但提示语跟「正在审核」是同一句，写「已删除」会误伤审核中的帖。</li>'
-+ '<li>数字是整页（每页 200 条）往下翻、够 24 小时才停的，所以库里总数常常是 200 的整数倍；'
++ '<li>数字是整页（每页 100 条）往下翻、够 24 小时才停的，所以库里总数常常是 100 的整数倍；'
 + '没铺满时卡片标题会写成<b>实际回溯的小时数</b>。</li>'
 + '</ul>'
 + '<p class="dim">库里最多留 48 小时，超了自动清，旧数据不会一直堆着。</p>';
